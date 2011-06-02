@@ -99,15 +99,24 @@ module BoxGrinder
           ami_dir = ami_key(@appliance_config.name, @plugin_config['path'])
           ami_manifest_key = "#{ami_dir}/#{@appliance_config.name}.ec2.manifest.xml"
 
-          if !s3_object_exists?(ami_manifest_key) or @plugin_config['snapshot']
-            bundle_image(@previous_deliverables)
-            fix_sha1_sum
-            upload_image(ami_dir)
-          else
-            @log.debug "AMI for #{@appliance_config.name} appliance already uploaded, skipping..."
-          end
+         @log.debug "Going to check whether s3 object exists"
 
-          register_image(ami_manifest_key)
+        if s3_object_exists?(ami_manifest_key) and @plugin_config['overwrite']
+          @log.info "Object exists, attempting to deregister an existing image"
+          deregister_image(ami_manifest_key) # Remove existing image 
+          bucket().delete_folder(ami_dir) # Avoid triggering dupe detection 
+        end 
+        
+        if !s3_object_exists?(ami_manifest_key) or @plugin_config['snapshot']
+          @log.info "Doing bundle/snapshot"
+          bundle_image(@previous_deliverables)
+          fix_sha1_sum
+          upload_image(ami_dir)
+        else
+          @log.debug "AMI for #{@appliance_config.name} appliance already uploaded, skipping..."
+        end
+
+        register_image(ami_manifest_key)
       end
     end
 
@@ -134,7 +143,10 @@ module BoxGrinder
 
       key = bucket(true, permissions).key(remote_path.gsub(/^\//, '').gsub(/\/\//, ''))
 
-      unless key.exists? or @plugin_config['overwrite']
+      @log.info "Overwrite set to: #{@plugin_config['overwrite']}"
+
+      if !key.exists? or @plugin_config['overwrite']
+        @log.info "Will overwrite existing file #{remote_path}" if key.exists? and @plugin_config['overwrite']
         @log.info "Uploading #{File.basename(@deliverables[:package])} (#{size_b/1024/1024}MB) to '#{@plugin_config['bucket']}#{remote_path}' path..."
         key.put(open(@deliverables[:package]), permissions, :server => REGION_OPTIONS[@plugin_config['region']][:endpoint])
         @log.info "Appliance #{@appliance_config.name} uploaded to S3."
@@ -185,6 +197,16 @@ module BoxGrinder
       end
     end
 
+    def deregister_image(ami_manifest_key)
+      info = ami_info(ami_manifest_key)
+      if info
+        @ec2.deregister_image(:image_id => info.imageId)
+        @log.info "Preexisting image '#{info.imageLocation}' for #{@appliance_config.name} was successfully de-registered, it had id: #{info.imageId} (region: #{@plugin_config['region']})."
+      else # This occurs when the AMI is de-registered externally but the file structure is left intact in S3. In this instance, we simply overwrite and register the image as if it were "new".
+        @log.info "Possible dangling/unregistered AMI skeleton structure in S3, there is nothing to deregister"
+      end
+    end
+
     def ami_info(ami_manifest_key)
       ami_info = nil
 
@@ -210,11 +232,16 @@ module BoxGrinder
 
       return "#{base_path}/#{@appliance_config.hardware.arch}" unless @plugin_config['snapshot']
 
+      @log.info "Determining snapshot name"
+
       snapshot = 1
 
       while s3_object_exists?("#{base_path}-SNAPSHOT-#{snapshot}/#{@appliance_config.hardware.arch}/")
         snapshot += 1
       end
+
+      # Reuse the last key (if there was one) 
+      snapshot -=1 if snapshot > 1 and @plugin_config['overwrite']
 
       "#{base_path}-SNAPSHOT-#{snapshot}/#{@appliance_config.hardware.arch}"
     end
@@ -224,7 +251,7 @@ module BoxGrinder
 
       begin
         b = bucket(false)
-        # Retrieve only one or no keys (if bucket is empty), throw an exception if bucket doesn't exists
+        # Retrieve only one or no keys (if bucket is empty), throw an exception if bucket doesn't exist
         b.keys('max-keys' => 1)
 
         if b.key(path).exists?
