@@ -14,4 +14,4 @@ wizard
 *.gem
 coverage
 *.gemspec
-
+.yardoc

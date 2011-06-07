@@ -144,7 +144,7 @@ module BoxGrinder
       @plugin.instance_variable_set(:@s3, s3)
 
       key = mock('Key')
-      key.should_receive(:exists?).and_return(false)
+      key.should_receive(:exists?).twice.and_return(false)
       key.should_receive(:put).with('abc', 'private', :server => 's3.amazonaws.com')
 
       bucket = mock('Bucket')

@@ -98,16 +98,17 @@ module BoxGrinder
 
           ami_dir = ami_key(@appliance_config.name, @plugin_config['path'])
           ami_manifest_key = "#{ami_dir}/#{@appliance_config.name}.ec2.manifest.xml"
+          s3_object_exists = s3_object_exists?(ami_manifest_key)
 
          @log.debug "Going to check whether s3 object exists"
 
-        if s3_object_exists?(ami_manifest_key) and @plugin_config['overwrite']
+        if s3_object_exists and @plugin_config['overwrite']
           @log.info "Object exists, attempting to deregister an existing image"
           deregister_image(ami_manifest_key) # Remove existing image 
           bucket().delete_folder(ami_dir) # Avoid triggering dupe detection 
         end 
         
-        if !s3_object_exists?(ami_manifest_key) or @plugin_config['snapshot']
+        if !s3_object_exists or @plugin_config['snapshot']
           @log.info "Doing bundle/snapshot"
           bundle_image(@previous_deliverables)
           fix_sha1_sum

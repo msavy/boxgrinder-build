@@ -116,7 +116,7 @@ module BoxGrinder
       it "should check if image is already registered and return false if there are no images registered for this account" do
         prepare_plugin { |plugin| plugin.stub!(:after_init) }
 
-        plugin_config = mock('PluginConfiig')
+        plugin_config = mock('PluginConfig')
         plugin_config.should_receive(:[]).with('account_number').and_return('0000-0000-0000')
 
         @plugin.instance_variable_set(:@plugin_config, plugin_config)
@@ -132,7 +132,7 @@ module BoxGrinder
       it "should check if image is already registered and return false if there are no images with name aname_new" do
         prepare_plugin { |plugin| plugin.stub!(:after_init) }
 
-        plugin_config = mock('PluginConfiig')
+        plugin_config = mock('PluginConfig')
         plugin_config.should_receive(:[]).with('account_number').and_return('0000-0000-0000')
 
         @plugin.instance_variable_set(:@plugin_config, plugin_config)
@@ -150,7 +150,7 @@ module BoxGrinder
 
         prepare_plugin { |plugin| plugin.stub!(:after_init) }
 
-        plugin_config = mock('PluginConfiig')
+        plugin_config = mock('PluginConfig')
         plugin_config.should_receive(:[]).with('account_number').and_return('0000-0000-0000')
 
         @plugin.instance_variable_set(:@plugin_config, plugin_config)
