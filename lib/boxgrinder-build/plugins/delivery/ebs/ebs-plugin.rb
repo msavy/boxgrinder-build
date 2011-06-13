@@ -267,22 +267,23 @@ module BoxGrinder
     end
 
     def ami_info(name)
-      images = @ec2.describe_images(:owner_id => @plugin_config['account_number'].to_s.gsub(/-/,'')).imagesSet
+      images = @ec2.describe_images(:owner_id => @plugin_config['account_number'].to_s.gsub(/-/,''))
 
-      @log.info name
-      
       return false if images.nil?
 
+      images = images.imagesSet
+
       for image in images.item do
-        return image if (image.name.eql?(name))
+        return image if image.name == name
       end
+      false
     end
 
     def already_registered?(name)
-      ami_info(name).imageId
+      info = ami_info(name)
+      return info.imageId if info
+      false
     end
-
-
 
     def adjust_fstab(guestfs)
       guestfs.sh("cat /etc/fstab | grep -v '/mnt' | grep -v '/data' | grep -v 'swap' > /etc/fstab.new")
