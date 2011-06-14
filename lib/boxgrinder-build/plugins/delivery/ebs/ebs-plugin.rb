@@ -80,13 +80,14 @@ module BoxGrinder
           instances.push i if i.imageId == ami_id #TODO remove check once gem update occurs
         end
       end
-      instances.uniq!
+      return instances.uniq! unless instances.empty?
+      nil
     end
     
     def stomp_ebs(ami_info)
 
       device = block_device_from_ami(ami_info, ROOT_DEVICE_NAME)
-    
+
       if device     
         snapshot_info = snapshot_info(device.ebs.snapshotId)
         volume_id = snapshot_info.volumeId
@@ -94,23 +95,26 @@ module BoxGrinder
         @log.info "Finding any existing image with the block store attached"
        
         if instances = get_instances(ami_info.imageId)
-          raise "There are still instances of #{ami_info.imageId} running, you must stop them: #{instaces.join(",")}"
+          raise "There are still instances of #{ami_info.imageId} running, you must stop them: #{instances.join(",")}"
         end
 
         begin
-          @log.debug "Forcibly unmounting block store #{volume_id}"
+          @log.debug "Forcibly detaching block store #{volume_id}"
           @ec2.detach_volume(:volume_id => volume_id, :force => true)
+
+          #TODO check-wait cycle to determine that detachment has occurred successfully before continuing to delete.
       
           @log.debug "Deleting block store"
           @ec2.delete_volume(:volume_id => volume_id)
         rescue => e #error messages seem to be misleading
           @log.info "An error occurred when attempting to detach and delete old volume #{volume_id}, it may have already deleted, or is a ghost entry."
-          @log.info e
+          @log.debug e
         ensure
           # ensure that the volume is _really_ gone? There is no guarantee that they won't hang around according to the API
         end
 
         @log.debug "Deregistering AMI"
+
         @ec2.deregister_image(:image_id => ami_info.imageId)
 
         unless @plugin_config['preserve_snapshots']
@@ -120,7 +124,9 @@ module BoxGrinder
  
       else
         @log.error "The device #{ROOT_DEVICE_NAME} was not found, and therefore can not be unmounted"
+        return false
       end
+      true
     end
 
     def execute(type = :ebs)
