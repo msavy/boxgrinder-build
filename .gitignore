@@ -15,3 +15,4 @@ wizard
 coverage
 *.gemspec
 .yardoc
+doc
