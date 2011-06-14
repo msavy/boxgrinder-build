@@ -81,12 +81,13 @@ module BoxGrinder
         plugin.should_receive(:open).with('http://169.254.169.254/latest/meta-data/placement/availability-zone').and_return(avaibility_zone)
       end
 
-      supportes_oses = @plugin.instance_variable_get(:@supported_oses)
+      supported_oses = @plugin.instance_variable_get(:@supported_oses)
 
-      supportes_oses.size.should == 2
-      supportes_oses.keys.sort.should == ['fedora', 'rhel']
-      supportes_oses['rhel'].should == ['6']
-      supportes_oses['fedora'].should == ['13', '14', '15']
+      supported_oses.size.should == 3
+      supported_oses.keys.sort.should == ['fedora', 'rhel', 'centos'].sort
+      supported_oses['rhel'].should == ['6']
+      supported_oses['fedora'].should == ['13', '14', '15']
+      supported_oses['centos'].should == ['5']
     end
 
     describe ".after_init" do
