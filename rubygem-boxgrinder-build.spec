@@ -149,6 +149,11 @@ popd
 %{gemdir}/doc/%{gemname}-%{version}
 
 %changelog
+* Tue Jun 14 2011 Marc Savy <msavy@redhat.com> - 0.9.3-1
+- Upstream release: 0.9.3
+- [BGBUILD-220] Group names have spaces (to the user), this breaks schema rules for packages
+- [BGBUILD-222] Allow overwrite of uploaded ec2 image
+
 * Thu May 05 2011 Marek Goldmann <mgoldman@redhat.com> - 0.9.2-1
 - Upstream release: 0.9.2
 - [BGBUILD-148] Add support for building CentOS/RHEL images on Fedora
