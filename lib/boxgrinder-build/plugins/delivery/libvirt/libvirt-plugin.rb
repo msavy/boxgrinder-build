@@ -166,7 +166,7 @@ module BoxGrinder
       xml = builder.domain(:type => options[:domain_type].to_s) do |domain|
         domain.name(@appliance_name)
         domain.description(@appliance_config.summary)
-        domain.memory(@appliance_config.hardware.memory * (1024**3))
+        domain.memory(@appliance_config.hardware.memory * (1024**2))
         domain.vcpu(@appliance_config.hardware.cpus)
         domain.os do |os|
           os.type(options[:os_type].to_s, :arch => @appliance_config.hardware.arch)
