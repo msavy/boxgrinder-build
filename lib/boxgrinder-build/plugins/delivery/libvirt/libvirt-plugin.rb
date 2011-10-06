@@ -40,7 +40,7 @@ module BoxGrinder
       set_default_config_value('remote_no_verify', true)
       set_default_config_value('bus', false)
       set_default_config_value('overwrite', false)
-      set_default_config_value('default_permissions', 0644)
+      set_default_config_value('default_permissions', 0770)
       set_default_config_value('dump_xml', false)
       set_default_config_value('domain_type', false)
       set_default_config_value('virt_type', false)
@@ -166,7 +166,7 @@ module BoxGrinder
       xml = builder.domain(:type => options[:domain_type].to_s) do |domain|
         domain.name(@appliance_name)
         domain.description(@appliance_config.summary)
-        domain.memory(@appliance_config.hardware.memory * (1024**2))
+        domain.memory(@appliance_config.hardware.memory)
         domain.vcpu(@appliance_config.hardware.cpus)
         domain.os do |os|
           os.type(options[:os_type].to_s, :arch => @appliance_config.hardware.arch)
