@@ -86,8 +86,8 @@ module BoxGrinder
         @log.info("Assuming this is a remote address.")
         upload_image
       else
-        @log.info("Copying disk #{@previous_deliverables.disk} to: #{@image_delivery_uri}")
-        FileUtils.cp(@previous_deliverables.disk, @image_delivery_uri)
+        @log.info("Copying disk #{@previous_deliverables.disk} to: #{@image_delivery_uri.path}")
+        FileUtils.cp(@previous_deliverables.disk, @image_delivery_uri.path)
       end
 
       if @dump_xml
