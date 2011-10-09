@@ -107,7 +107,7 @@ module BoxGrinder
         dom_rank = dom_maps.map { |m| m[:rank]}.reduce(:<=>)
 
         # Compare according to virtualisation ranking
-        virt_rank = [a,b].enum_for(:each_with_index).map do |x,i|
+        virt_rank = [a,b].enum_for(:each_with_index).map do |x, i|
           dom_maps[i][:domain].virt_map[xpath_first_intern(x,'.//os_type')]
         end
 
@@ -160,6 +160,5 @@ module BoxGrinder
       @log.debug("Using default domain mappings.")
       PLUGINS[:default]
     end
-
   end
 end

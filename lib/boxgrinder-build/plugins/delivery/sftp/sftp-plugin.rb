@@ -28,8 +28,11 @@ module BoxGrinder
     def validate
       set_default_config_value('overwrite', false)
       set_default_config_value('default_permissions', 0644)
+      set_default_config_value('identity', false)
 
       validate_plugin_config(['path', 'username', 'host'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#SFTP_Delivery_Plugin')
+
+      @identity = (@plugin_config['identity'] || @plugin_config['i'])
     end
 
     def after_init
@@ -41,22 +44,22 @@ module BoxGrinder
 
       @log.info "Uploading #{@appliance_config.name} appliance via SSH..."
 
-      begin
-        #TODO move to a block
-        connect(@plugin_config['host'], @plugin_config['username'], @plugin_config['password'])
-        upload_files(@plugin_config['path'], @plugin_config['default_permissions'], @plugin_config['overwrite'], File.basename(@deliverables[:package]) => @deliverables[:package])
-        disconnect
+      #TODO move to a block
+      connect(@plugin_config['host'], @plugin_config['username'], @plugin_config['password'], (@identity || generate_keypaths).to_a)
+      upload_files(@plugin_config['path'], @plugin_config['default_permissions'], @plugin_config['overwrite'], File.basename(@deliverables[:package]) => @deliverables[:package])
 
-        @log.info "Appliance #{@appliance_config.name} uploaded."
-      rescue => e
-        @log.error e
-        @log.error "An error occurred while uploading files."
-      end
+      @log.info "Appliance #{@appliance_config.name} uploaded."
+    rescue => e
+      @log.error e
+      @log.error "An error occurred while uploading files."
+      raise
+    ensure
+      disconnect
     end
 
-    def connect(host, username, password)
+    def connect(host, username, password, keys=generate_keypaths)
       @log.info "Connecting to #{host}..."
-      @ssh = Net::SSH.start(host, username, {:password => password})
+      @ssh = Net::SSH.start(host, username, :password => password, :keys => keys)
     end
 
     def connected?
@@ -68,6 +71,23 @@ module BoxGrinder
       @log.info "Disconnecting from host..."
       @ssh.close if connected?
       @ssh = nil
+    end
+
+    # Extend the default baked paths in net-ssh/net-sftp to include SUDO_USER
+    # and/or LOGNAME key directories too.
+    def generate_keypaths
+      keys = %w(id_rsa id_dsa)
+      dirs = %w(.ssh .ssh2)
+      paths = %w(~/.ssh/id_rsa ~/.ssh/id_dsa ~/.ssh2/id_rsa ~/.ssh2/id_dsa)
+      ['SUDO_USER','LOGNAME'].inject(paths) do |accum, var|
+        if user = ENV[var]
+          accum << dirs.collect do |d|
+            keys.collect { |k| File.expand_path("~#{user}/#{d}/#{k}") }
+          end
+        end
+        accum
+      end
+      paths
     end
 
     def upload_files(path, default_permissions, overwrite, files = {})

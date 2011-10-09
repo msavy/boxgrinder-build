@@ -45,6 +45,7 @@ module BoxGrinder
       set_default_config_value('domain_type', false)
       set_default_config_value('virt_type', false)
       set_default_config_value('undefine_existing', false)
+      set_default_config_value('identity', false)
 
       validate_plugin_config(['libvirt_hypervisor_uri'])
       patch
@@ -52,6 +53,9 @@ module BoxGrinder
 
     def validate
       set_defaults
+
+      # SSH key
+      @identity = (@plugin_config['identity'] || @plugin_config['i'])
 
       @libvirt_capabilities = LibVirtCapabilities.new(:log => @log)
 
@@ -66,7 +70,7 @@ module BoxGrinder
       # If not specified we assume it is the same as the @image_delivery_uri. It is valid
       # that they can be different - for instance the image is delivered to a central repository
       # by SSH that maps to a local mount on host using libvirt.
-      @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] ||= @image_delivery_uri.path)
+      @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] || @image_delivery_uri.path)
 
       @network = @plugin_config['network']
       @domain_type = @plugin_config['domain_type']
@@ -141,8 +145,9 @@ module BoxGrinder
 
       #SFTP library automagically uses keys registered with the OS first before trying a password.
       uploader.connect(@image_delivery_uri.host,
-      (@image_delivery_uri.user ||= Etc.getlogin),
-      @image_delivery_uri.password)
+      (@image_delivery_uri.user || Etc.getlogin),
+      @image_delivery_uri.password,
+      (@identity || uploader.generate_paths).to_a)
 
       uploader.upload_files(@image_delivery_uri.path,
                             @plugin_config['default_permissions'],
