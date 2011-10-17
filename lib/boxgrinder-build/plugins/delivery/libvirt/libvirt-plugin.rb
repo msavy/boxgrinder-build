@@ -45,7 +45,6 @@ module BoxGrinder
       set_default_config_value('domain_type', false)
       set_default_config_value('virt_type', false)
       set_default_config_value('undefine_existing', false)
-      set_default_config_value('identity', false)
 
       validate_plugin_config(['libvirt_hypervisor_uri'])
       patch
@@ -53,9 +52,6 @@ module BoxGrinder
 
     def validate
       set_defaults
-
-      # SSH key
-      @identity = (@plugin_config['identity'] || @plugin_config['i'])
 
       @libvirt_capabilities = LibVirtCapabilities.new(:log => @log)
 
@@ -80,7 +76,7 @@ module BoxGrinder
       # no_verify determines whether certificate validation performed
       @remote_no_verify = @plugin_config['remote_no_verify'] ? 1 : 0
 
-      @libvirt_hypervisor_uri = @plugin_config['libvirt_hypervisor_uri'] << "?no_verify=#{@remote_no_verify}"
+      @libvirt_hypervisor_uri = URI.parse(@plugin_config['libvirt_hypervisor_uri'] << "?no_verify=#{@remote_no_verify}")
       @bus = @plugin_config['bus']
       @appliance_name = "#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@appliance_config.os.name}-#{@appliance_config.os.version}-#{@appliance_config.hardware.arch}-#{current_platform}"
     end
@@ -105,7 +101,21 @@ module BoxGrinder
     end
 
     def determine_remotely
-      conn = Libvirt::open(@libvirt_hypervisor_uri)
+      # Remove password field from URI, as libvirt doesn't support it. We can use it for passphrase if needed.
+      lv_uri = URI::Generic.build(:scheme => @libvirt_hypervisor_uri.scheme, :userinfo => @libvirt_hypervisor_uri.user,
+                                  :host => @libvirt_hypervisor_uri.host, :path => @libvirt_hypervisor_uri.path,
+                                  :query => @libvirt_hypervisor_uri.query)
+      puts lv_uri.to_s
+      # The authentication only pertains to libvirtd itself and _not_ the transport (e.g. SSH)
+      conn = Libvirt::open_auth(lv_uri.to_s, [Libvirt::CRED_AUTHNAME, Libvirt::CRED_PASSPHRASE]) do |cred|
+        case cred["type"]
+          when Libvirt::CRED_AUTHNAME
+            @libvirt_hypervisor_uri.user
+          when Libvirt::CRED_PASSPHRASE
+            @libvirt_hypervisor_uri.password
+        end
+      end
+
       if dom = get_existing_domain(conn, @appliance_name)
         unless @undefine_existing
           @log.fatal("A domain already exists with the name #{@appliance_name}. Set undefine_existing:true to automatically destroy and undefine it.")
@@ -129,7 +139,7 @@ module BoxGrinder
     end
 
     # If we just want to dump a basic XML skeleton and provide sensible defaults
-    def determine_locally()
+    def determine_locally
       domain = @libvirt_capabilities.get_plugin(@previous_plugin_info).domain_rank.last
       build_xml(OpenStruct.new({
         :domain_type => domain.name,
@@ -146,8 +156,7 @@ module BoxGrinder
       #SFTP library automagically uses keys registered with the OS first before trying a password.
       uploader.connect(@image_delivery_uri.host,
       (@image_delivery_uri.user || Etc.getlogin),
-      @image_delivery_uri.password,
-      (@identity || uploader.generate_paths).to_a)
+      @image_delivery_uri.password)
 
       uploader.upload_files(@image_delivery_uri.path,
                             @plugin_config['default_permissions'],
@@ -171,7 +180,7 @@ module BoxGrinder
       xml = builder.domain(:type => options[:domain_type].to_s) do |domain|
         domain.name(@appliance_name)
         domain.description(@appliance_config.summary)
-        domain.memory(@appliance_config.hardware.memory)
+        domain.memory(@appliance_config.hardware.memory * 1024) #KB
         domain.vcpu(@appliance_config.hardware.cpus)
         domain.os do |os|
           os.type(options[:os_type].to_s, :arch => @appliance_config.hardware.arch)

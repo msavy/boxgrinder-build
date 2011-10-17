@@ -83,10 +83,10 @@ module BoxGrinder
         if user = ENV[var]
           accum << dirs.collect do |d|
             keys.collect { |k| File.expand_path("~#{user}/#{d}/#{k}") }
-          end
+          end.flatten!
         end
         accum
-      end
+      end.flatten!
       paths
     end
 
