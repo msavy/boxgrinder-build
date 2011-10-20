@@ -18,6 +18,7 @@
 
 require 'boxgrinder-build/plugins/base-plugin'
 require 'boxgrinder-build/plugins/delivery/libvirt/libvirt-capabilities'
+require 'boxgrinder-build/helpers/sftp-helper'
 
 require 'libvirt'
 require 'net/sftp'
@@ -45,6 +46,7 @@ module BoxGrinder
       set_default_config_value('domain_type', false)
       set_default_config_value('virt_type', false)
       set_default_config_value('undefine_existing', false)
+      set_default_config_value('appliance_name', "#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@appliance_config.os.name}-#{@appliance_config.os.version}-#{@appliance_config.hardware.arch}-#{current_platform}")
 
       validate_plugin_config(['libvirt_hypervisor_uri'])
       patch
@@ -54,36 +56,45 @@ module BoxGrinder
       set_defaults
 
       @libvirt_capabilities = LibVirtCapabilities.new(:log => @log)
+      @image_delivery_uri = URI.parse(@plugin_config['image_delivery_uri'])
+      @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] || @image_delivery_uri.path)
+
+      ['dump_xml','network', 'domain_type', 'virt_type', 'undefine_existing', 'script', 'bus', 'appliance_name'].each do |v|
+        self.instance_variable_set(:"@#{v}", @plugin_config[v])
+      end
 
       # Optional user provided script
-      @script = @plugin_config['script']
-      @image_delivery_uri = URI.parse(@plugin_config['image_delivery_uri'])
+      #@script = @plugin_config['script']
 
       # Do not connect to the livirt hypervisor, just assume sensible defaults
-      @dump_xml = @plugin_config['dump_xml']
+      #@dump_xml = @plugin_config['dump_xml']
 
       # The path that the image will be accessible at on the {remote, local} libvirt
       # If not specified we assume it is the same as the @image_delivery_uri. It is valid
       # that they can be different - for instance the image is delivered to a central repository
       # by SSH that maps to a local mount on host using libvirt.
-      @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] || @image_delivery_uri.path)
 
-      @network = @plugin_config['network']
-      @domain_type = @plugin_config['domain_type']
-      @virt_type = @plugin_config['virt_type']
-      @undefine_existing = @plugin_config['undefine_existing']
+
+
+      #@network = @plugin_config['network']
+      #@domain_type = @plugin_config['domain_type']
+      #@virt_type = @plugin_config['virt_type']
+      #@undefine_existing = @plugin_config['undefine_existing']
+      #@bus = @plugin_config['bus']
 
       # no_verify determines whether certificate validation performed
       @remote_no_verify = @plugin_config['remote_no_verify'] ? 1 : 0
 
-      @libvirt_hypervisor_uri = URI.parse(@plugin_config['libvirt_hypervisor_uri'] << "?no_verify=#{@remote_no_verify}")
-      @bus = @plugin_config['bus']
-      @appliance_name = "#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@appliance_config.os.name}-#{@appliance_config.os.version}-#{@appliance_config.hardware.arch}-#{current_platform}"
+      (@libvirt_hypervisor_uri.include?('?') ? '&' : '?') + "no_verify=#{@remote_no_verify}"
+      @libvirt_hypervisor_uri = URI.parse(@plugin_config['libvirt_hypervisor_uri'])
+      # Ensure that if there are existing
+      #(@libvirt_hypervisor_uri.query.any? ? '&' : '?') + "no_verify=#{@remote_no_verify}"
+      #@libvirt_hypervisor_uri = URI.parse(@plugin_config['libvirt_hypervisor_uri'] << "?no_verify=#{@remote_no_verify}")
     end
 
     def execute
-      if @image_delivery_uri.scheme =~ /(sftp|scp)/
-        @log.info("Assuming this is a remote address.")
+      if @image_delivery_uri.scheme =~ /(sftp)/
+        @log.info("Assuming this is a remote SFTP address.")
         upload_image
       else
         @log.info("Copying disk #{@previous_deliverables.disk} to: #{@image_delivery_uri.path}")
@@ -101,11 +112,11 @@ module BoxGrinder
     end
 
     def determine_remotely
-      # Remove password field from URI, as libvirt doesn't support it. We can use it for passphrase if needed.
+      # Remove password field from URI, as libvirt doesn't support it directly. We can use it for passphrase if needed.
       lv_uri = URI::Generic.build(:scheme => @libvirt_hypervisor_uri.scheme, :userinfo => @libvirt_hypervisor_uri.user,
                                   :host => @libvirt_hypervisor_uri.host, :path => @libvirt_hypervisor_uri.path,
                                   :query => @libvirt_hypervisor_uri.query)
-      puts lv_uri.to_s
+
       # The authentication only pertains to libvirtd itself and _not_ the transport (e.g. SSH)
       conn = Libvirt::open_auth(lv_uri.to_s, [Libvirt::CRED_AUTHNAME, Libvirt::CRED_PASSPHRASE]) do |cred|
         case cred["type"]
@@ -150,13 +161,12 @@ module BoxGrinder
 
     # Remote only
     def upload_image
-      uploader = SFTPPlugin.new
-      uploader.instance_variable_set(:@log, @log)
+      uploader = SFTPHelper.new(:log => @log)
 
       #SFTP library automagically uses keys registered with the OS first before trying a password.
       uploader.connect(@image_delivery_uri.host,
       (@image_delivery_uri.user || Etc.getlogin),
-      @image_delivery_uri.password)
+      :password => @image_delivery_uri.password)
 
       uploader.upload_files(@image_delivery_uri.path,
                             @plugin_config['default_permissions'],
@@ -227,13 +237,12 @@ module BoxGrinder
     end
 
     # Current libvirt library provides no way of getting the libvirt_code for
-    # errors, this patches it in.
+    # errors, this patches it in. If an update fixes this, do nothing.
     def patch
-      # If an update fixes this, do nothing.
       return if Libvirt::Error.respond_to?(:libvirt_code, false)
-        Libvirt::Error.module_eval do
-          def libvirt_code; @libvirt_code end
-        end
+      Libvirt::Error.module_eval do
+        def libvirt_code; @libvirt_code end
+      end
     end
 
     def write_xml(xml)
