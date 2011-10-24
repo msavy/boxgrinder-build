@@ -31,23 +31,34 @@ require 'ostruct'
 module BoxGrinder
   class LibVirtPlugin < BasePlugin
 
+
+
+    # @config script [string]
+    #
+    #
     def set_defaults
+      # Optional user provided script
       set_default_config_value('script', false)
+      # Where to deliver the image to (sftp URI or local path)
       set_default_config_value('image_delivery_uri', '/var/lib/libvirt/images/')
-      set_default_config_value('graphics', 'none')
-      set_default_config_value('no_auto_console', true)
-      set_default_config_value('network', 'default')
+      # Where the image will be on the libvirt machine (leave empty and assume image_delivery_uri path element)
+      set_default_config_value('libvirt_image_uri', false)
       # Disable certificate verification procedures by default
       set_default_config_value('remote_no_verify', true)
-      set_default_config_value('bus', false)
+      # Overwrite any existing assets
       set_default_config_value('overwrite', false)
       set_default_config_value('default_permissions', 0770)
+      # Do not connect to the livirt hypervisor, just assume sensible defaults and dump the xml file
       set_default_config_value('dump_xml', false)
+      # Manual overrides
+      set_default_config_value('appliance_name', "#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@appliance_config.os.name}-#{@appliance_config.os.version}-#{@appliance_config.hardware.arch}-#{current_platform}")
       set_default_config_value('domain_type', false)
       set_default_config_value('virt_type', false)
+      set_default_config_value('bus', false)
+      set_default_config_value('network', 'default')
+      # Undefine any existing domain of the same name,
       set_default_config_value('undefine_existing', false)
-      set_default_config_value('appliance_name', "#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@appliance_config.os.name}-#{@appliance_config.os.version}-#{@appliance_config.hardware.arch}-#{current_platform}")
-
+      # LibVirt endpoint URI (e.g. qemu+ssh://user@example.com/system)
       validate_plugin_config(['libvirt_hypervisor_uri'])
       patch
     end
@@ -63,33 +74,10 @@ module BoxGrinder
         self.instance_variable_set(:"@#{v}", @plugin_config[v])
       end
 
-      # Optional user provided script
-      #@script = @plugin_config['script']
-
-      # Do not connect to the livirt hypervisor, just assume sensible defaults
-      #@dump_xml = @plugin_config['dump_xml']
-
-      # The path that the image will be accessible at on the {remote, local} libvirt
-      # If not specified we assume it is the same as the @image_delivery_uri. It is valid
-      # that they can be different - for instance the image is delivered to a central repository
-      # by SSH that maps to a local mount on host using libvirt.
-
-
-
-      #@network = @plugin_config['network']
-      #@domain_type = @plugin_config['domain_type']
-      #@virt_type = @plugin_config['virt_type']
-      #@undefine_existing = @plugin_config['undefine_existing']
-      #@bus = @plugin_config['bus']
-
-      # no_verify determines whether certificate validation performed
       @remote_no_verify = @plugin_config['remote_no_verify'] ? 1 : 0
 
       (@libvirt_hypervisor_uri.include?('?') ? '&' : '?') + "no_verify=#{@remote_no_verify}"
       @libvirt_hypervisor_uri = URI.parse(@plugin_config['libvirt_hypervisor_uri'])
-      # Ensure that if there are existing
-      #(@libvirt_hypervisor_uri.query.any? ? '&' : '?') + "no_verify=#{@remote_no_verify}"
-      #@libvirt_hypervisor_uri = URI.parse(@plugin_config['libvirt_hypervisor_uri'] << "?no_verify=#{@remote_no_verify}")
     end
 
     def execute
