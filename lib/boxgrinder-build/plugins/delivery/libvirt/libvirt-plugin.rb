@@ -31,35 +31,47 @@ require 'ostruct'
 module BoxGrinder
   class LibVirtPlugin < BasePlugin
 
+    # @faketag hello world
+    def wibble
+      puts 'wobble'
+    end
 
-
-    # @config script [string]
-    #
-    #
+    # @plugin_config [String] libvirt_hypervisor_uri LibVirt endpoint address (e.g. qemu+ssh://example.com/system)
+    # @plugin_config [String] script Path to user provided script to modify XML before registration with LibVirt.
+    #                         Plugin passes the raw XML, and consumes stdout to use as revised XML document.
+    # @plugin_config [String] image_delivery_uri Where to deliver the image to (SFTP URI or local path)
+    # @plugin_config [String] libvirt_image_uri Where the image will be on the LibVirt machine 
+    # @plugin_config [Int]    default_permissions Permissions of delivered image (default: 0770)
+    # @plugin_config [Int]    overwrite Overwrite any identically named file at the delivery path
+    #                         Leave empty to assume image_delivery_uri path element. (default: false)
+    # @plugin_config [Bool]   undefine_existing Undefine any existing domain of the same name (default: false)
+    # @plugin_config [Bool]   remote_no_verify Disable certificate verification procedures (default: true)
+    # @plugin_config [Bool]   xml_only Do not connect to the LibVirt hypervisor, just assume sensible defaults
+    #                         where no user values are provided, and produce the XML domain. (default: false)
+    # @plugin_config [String] appliance_name Name for the appliance to be registered as in LibVirt.
+    #                         (default: name-version-release-os_name-os_version-arch-platform)
+    # @plugin_config [String] domain_type LibVirt domain tyne (e.g. qemu, kvm)
+    # @plugin_config [String] virt_type LibVirt virt type (e.g. HVM)
+    # @plugin_config [String] bus Disk bus (e.g. virtio)
+    # @plugin_config [String] network Network name (e.g. )
     def set_defaults
-      # Optional user provided script
+      validate_plugin_config(['libvirt_hypervisor_uri'])
+      
       set_default_config_value('script', false)
-      # Where to deliver the image to (sftp URI or local path)
       set_default_config_value('image_delivery_uri', '/var/lib/libvirt/images/')
-      # Where the image will be on the libvirt machine (leave empty and assume image_delivery_uri path element)
       set_default_config_value('libvirt_image_uri', false)
-      # Disable certificate verification procedures by default
       set_default_config_value('remote_no_verify', true)
-      # Overwrite any existing assets
       set_default_config_value('overwrite', false)
+      set_default_config_value('undefine_existing', false)      
       set_default_config_value('default_permissions', 0770)
-      # Do not connect to the livirt hypervisor, just assume sensible defaults and dump the xml file
-      set_default_config_value('dump_xml', false)
+      set_default_config_value('xml_only', false)
       # Manual overrides
       set_default_config_value('appliance_name', "#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@appliance_config.os.name}-#{@appliance_config.os.version}-#{@appliance_config.hardware.arch}-#{current_platform}")
       set_default_config_value('domain_type', false)
       set_default_config_value('virt_type', false)
       set_default_config_value('bus', false)
       set_default_config_value('network', 'default')
-      # Undefine any existing domain of the same name,
-      set_default_config_value('undefine_existing', false)
-      # LibVirt endpoint URI (e.g. qemu+ssh://user@example.com/system)
-      validate_plugin_config(['libvirt_hypervisor_uri'])
+
       patch
     end
 
@@ -70,7 +82,7 @@ module BoxGrinder
       @image_delivery_uri = URI.parse(@plugin_config['image_delivery_uri'])
       @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] || @image_delivery_uri.path)
 
-      ['dump_xml','network', 'domain_type', 'virt_type', 'undefine_existing', 'script', 'bus', 'appliance_name'].each do |v|
+      ['xml_only','network', 'domain_type', 'virt_type', 'undefine_existing', 'script', 'bus', 'appliance_name'].each do |v|
         self.instance_variable_set(:"@#{v}", @plugin_config[v])
       end
 
@@ -89,7 +101,7 @@ module BoxGrinder
         FileUtils.cp(@previous_deliverables.disk, @image_delivery_uri.path)
       end
 
-      if @dump_xml
+      if @xml_only
         @log.info("Determining locally only.")
         xml = determine_locally
       else
