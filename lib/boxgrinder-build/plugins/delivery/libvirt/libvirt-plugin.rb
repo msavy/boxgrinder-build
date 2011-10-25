@@ -43,21 +43,17 @@ module BoxGrinder
   #   * +sftp\://user@example.com/some/path+
   #   * +sftp\://user:pass@example.com/some/path+ It is advisable to use keys with ssh-agent.
   #
+  # @plugin_config [String] libvirt_image_uri Where the image will be on the Libvirt machine.
+  #     Examples:
+  #   * Default: +image_delivery_uri+ _path_ element.
+  #   * +/var/lib/libvirt/images+
+  #
   # @plugin_config [Int] default_permissions Permissions of delivered image. Examples:
   #   * Default: +0770+
   #   * +0755+
   #
-  # @plugin_config [String] libvirt_image_uri Where the image will be on the Libvirt machine.
-  #   Examples:
-  #   * Default: +image_delivery_uri+ _path_ element.
-  #   * +/var/lib/libvirt/images+
-  #
   # @plugin_config [Int] overwrite Overwrite any identically named file at the delivery path.
-  #   Examples:
-  #   * Default: +false+
-  #
-  # @plugin_config [Bool] undefine_existing Undefine any existing domain of the same name.
-  #   Examples:
+  #   Also undefines any existing domain of the same name.
   #   * Default: +false+
   #
   # @plugin_config [String] script Path to user provided script to modify XML before registration
@@ -104,7 +100,6 @@ module BoxGrinder
       set_default_config_value('libvirt_image_uri', false)
       set_default_config_value('remote_no_verify', true)
       set_default_config_value('overwrite', false)
-      set_default_config_value('undefine_existing', false)
       set_default_config_value('default_permissions', 0770)
       set_default_config_value('xml_only', false)
       # Manual overrides
@@ -122,8 +117,8 @@ module BoxGrinder
     def validate
       set_defaults
 
-      ['connection_uri', 'xml_only', 'network', 'domain_type', 'virt_type', 'undefine_existing',
-       'script', 'bus', 'appliance_name', 'default_permissions', 'overwrite'].each do |v|
+      ['connection_uri', 'xml_only', 'network', 'domain_type', 'virt_type', 'script',
+       'bus', 'appliance_name', 'default_permissions', 'overwrite'].each do |v|
         self.instance_variable_set(:"@#{v}", @plugin_config[v])
       end
 
@@ -175,8 +170,8 @@ module BoxGrinder
       end
 
       if dom = get_existing_domain(conn, @appliance_name)
-        unless @undefine_existing
-          @log.fatal("A domain already exists with the name #{@appliance_name}. Set undefine_existing:true to automatically destroy and undefine it.")
+        unless @overwrite
+          @log.fatal("A domain already exists with the name #{@appliance_name}. Set overwrite:true to automatically destroy and undefine it.")
           raise RuntimeError, "Domain '#{@appliance_name}' already exists"  #Make better specific exception
         end
         @log.info("Undefining existing domain #{@appliance_name}")
