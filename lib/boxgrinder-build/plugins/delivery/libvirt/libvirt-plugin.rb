@@ -30,7 +30,7 @@ require 'ostruct'
 
 module BoxGrinder
 
-  # @plugin_config [String] libvirt_uri Libvirt endpoint address. If you are
+  # @plugin_config [String] connection_uri Libvirt endpoint address. If you are
   #   using authenticated transport such as +ssh+ you should register your keys with
   #   an ssh agent. See: {http://libvirt.org/uri.html Libvirt Connection URIs}. Examples:
   #   * Default: +empty string+
@@ -98,9 +98,9 @@ module BoxGrinder
   class LibvirtPlugin < BasePlugin
 
     def set_defaults
-      set_default_config_value('libvirt_uri', '')
+      set_default_config_value('connection_uri', '')
       set_default_config_value('script', false)
-      set_default_config_value('image_delivery_uri', '/var/lib/libvirt/images/')
+      set_default_config_value('image_delivery_uri', '/var/lib/libvirt/images')
       set_default_config_value('libvirt_image_uri', false)
       set_default_config_value('remote_no_verify', true)
       set_default_config_value('overwrite', false)
@@ -122,19 +122,19 @@ module BoxGrinder
     def validate
       set_defaults
 
+      ['connection_uri', 'xml_only', 'network', 'domain_type', 'virt_type', 'undefine_existing',
+       'script', 'bus', 'appliance_name', 'default_permissions', 'overwrite'].each do |v|
+        self.instance_variable_set(:"@#{v}", @plugin_config[v])
+      end
+
       @libvirt_capabilities = LibvirtCapabilities.new(:log => @log)
       @image_delivery_uri = URI.parse(@plugin_config['image_delivery_uri'])
       @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] || @image_delivery_uri.path)
 
-      ['xml_only', 'network', 'domain_type', 'virt_type', 'undefine_existing', 'script', 'bus',
-       'appliance_name', 'default_permissions', 'overwrite'].each do |v|
-        self.instance_variable_set(:"@#{v}", @plugin_config[v])
-      end
-
       @remote_no_verify = @plugin_config['remote_no_verify'] ? 1 : 0
 
-      (@libvirt_uri.include?('?') ? '&' : '?') + "no_verify=#{@remote_no_verify}"
-      @libvirt_uri = URI.parse(@plugin_config['libvirt_uri'])
+      (@connection_uri.include?('?') ? '&' : '?') + "no_verify=#{@remote_no_verify}"
+      @connection_uri = URI.parse(@plugin_config['connection_uri'])
     end
 
     def execute
@@ -160,17 +160,17 @@ module BoxGrinder
     # Register the appliance as a new domain.
     def determine_remotely
       # Remove password field from URI, as libvirt doesn't support it directly. We can use it for passphrase if needed.
-      lv_uri = URI::Generic.build(:scheme => @libvirt_uri.scheme, :userinfo => @libvirt_uri.user,
-                                  :host => @libvirt_uri.host, :path => @libvirt_uri.path,
-                                  :query => @libvirt_uri.query)
+      lv_uri = URI::Generic.build(:scheme => @connection_uri.scheme, :userinfo => @connection_uri.user,
+                                  :host => @connection_uri.host, :path => @connection_uri.path,
+                                  :query => @connection_uri.query)
 
       # The authentication only pertains to libvirtd itself and _not_ the transport (e.g. SSH).
       conn = Libvirt::open_auth(lv_uri.to_s, [Libvirt::CRED_AUTHNAME, Libvirt::CRED_PASSPHRASE]) do |cred|
         case cred["type"]
           when Libvirt::CRED_AUTHNAME
-            @libvirt_uri.user
+            @connection_uri.user
           when Libvirt::CRED_PASSPHRASE
-            @libvirt_uri.password
+            @connection_uri.password
         end
       end
 
