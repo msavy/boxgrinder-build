@@ -29,44 +29,83 @@ require 'builder'
 require 'ostruct'
 
 module BoxGrinder
-  class LibVirtPlugin < BasePlugin
 
-    # @faketag hello world
-    def wibble
-      puts 'wobble'
-    end
+  # @plugin_config [String] libvirt_hypervisor_uri Libvirt endpoint address. If you are
+  #   using authenticated transport such as +ssh+ you should register your keys with
+  #   an ssh agent. See: {http://libvirt.org/uri.html Libvirt Connection URIs}
+  #   * Default: _empty string_.
+  #   * <tt>qemu+ssh://user@example.com/system</tt>
+  #   * +qemu:///system+
+  #
+  # @plugin_config [String] image_delivery_uri Where to deliver the image to. This must be a
+  #   local path or an SFTP address. The local ssh-agent is used for keys if available. Examples:
+  #   * Default: +/var/lib/libvirt/images+
+  #   * +sftp\://user@example.com/some/path+
+  #   * +sftp\://user:pass@example.com/some/path+ It is advisable to use keys with ssh-agent.
+  #
+  # @plugin_config [Int] default_permissions Permissions of delivered image (default: 0770)
+  #   * Default: +0770+, +0755+
+  #
+  # @plugin_config [String] libvirt_image_uri Where the image will be on the Libvirt machine.
+  #   * Default: +image_delivery_uri+ _path_ element.
+  #   * +/var/lib/libvirt/images+
+  #
+  # @plugin_config [Int] overwrite Overwrite any identically named file at the delivery path
+  #   * Default: +false+
+  #
+  # @plugin_config [Bool] undefine_existing Undefine any existing domain of the same name
+  #   * Default: +false+
+  #
+  # @plugin_config [String] script Path to user provided script to modify XML before registration
+  #   with Libvirt. Plugin passes the raw XML, and consumes stdout to use as revised XML document.
+  #
+  # @plugin_config [Bool] remote_no_verify Disable certificate verification procedures
+  #   * Default: +true+
+  #
+  # @plugin_config [Bool] xml_only Do not connect to the Libvirt hypervisor, just assume sensible
+  #   defaults where no user values are provided, and produce the XML domain.
+  #   * Default: +false+
+  #
+  # @plugin_config [String] appliance_name Name for the appliance to be registered as in Libvirt.
+  #   * Default: +name-version-release-os_name-os_version-arch-platform+
+  #   * +boxgrinder_rocks_f16+
+  #
+  # @plugin_config [String] domain_type Libvirt domain type (e.g. qemu, kvm)
+  #   * Default is a calculated value. Unless you are using +xml_only+ the remote instance will
+  #     be contacted and an attempt to determine the best value will be made. If +xml_only+
+  #     is set then a safe pre-determined default is used. User-set values take precedence.
+  #     See _type_: {http://libvirt.org/formatdomain.html#elements Domain format}
+  #
+  # @plugin_config [String] virt_type Libvirt virt type.
+  #   * Default is a calculated value. Where available paravirtual is preferred.
+  #     See _type_: {http://libvirt.org/formatdomain.html#elementsOSBIOS BIOS bootloader}
+  #   * +hvm+, +xen+, +linux+
+  #
+  # @plugin_config [String] bus Disk bus. Examples:
+  #   * Default is a pre-determined value depending on the domain type. User-set values take
+  #     precedence
+  #   * +virtio+, +ide+
+  #
+  # @plugin_config [String] network Network name. If you require a more complex setup
+  #   than a simple network name, then you should create and set a +script+
+  #   * default: +default+
+  class LibvirtPlugin < BasePlugin
 
-    # @plugin_config [String] libvirt_hypervisor_uri LibVirt endpoint address (e.g. qemu+ssh://example.com/system)
-    # @plugin_config [String] script Path to user provided script to modify XML before registration with LibVirt.
-    #                         Plugin passes the raw XML, and consumes stdout to use as revised XML document.
-    # @plugin_config [String] image_delivery_uri Where to deliver the image to (SFTP URI or local path)
-    # @plugin_config [String] libvirt_image_uri Where the image will be on the LibVirt machine 
-    # @plugin_config [Int]    default_permissions Permissions of delivered image (default: 0770)
-    # @plugin_config [Int]    overwrite Overwrite any identically named file at the delivery path
-    #                         Leave empty to assume image_delivery_uri path element. (default: false)
-    # @plugin_config [Bool]   undefine_existing Undefine any existing domain of the same name (default: false)
-    # @plugin_config [Bool]   remote_no_verify Disable certificate verification procedures (default: true)
-    # @plugin_config [Bool]   xml_only Do not connect to the LibVirt hypervisor, just assume sensible defaults
-    #                         where no user values are provided, and produce the XML domain. (default: false)
-    # @plugin_config [String] appliance_name Name for the appliance to be registered as in LibVirt.
-    #                         (default: name-version-release-os_name-os_version-arch-platform)
-    # @plugin_config [String] domain_type LibVirt domain tyne (e.g. qemu, kvm)
-    # @plugin_config [String] virt_type LibVirt virt type (e.g. HVM)
-    # @plugin_config [String] bus Disk bus (e.g. virtio)
-    # @plugin_config [String] network Network name (e.g. )
     def set_defaults
-      validate_plugin_config(['libvirt_hypervisor_uri'])
-      
+
+      set_default_config_value('libvirt_hypervisor_uri', '')
       set_default_config_value('script', false)
       set_default_config_value('image_delivery_uri', '/var/lib/libvirt/images/')
       set_default_config_value('libvirt_image_uri', false)
       set_default_config_value('remote_no_verify', true)
       set_default_config_value('overwrite', false)
-      set_default_config_value('undefine_existing', false)      
+      set_default_config_value('undefine_existing', false)
       set_default_config_value('default_permissions', 0770)
       set_default_config_value('xml_only', false)
       # Manual overrides
-      set_default_config_value('appliance_name', "#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@appliance_config.os.name}-#{@appliance_config.os.version}-#{@appliance_config.hardware.arch}-#{current_platform}")
+      set_default_config_value('appliance_name', [@appliance_config.name, @appliance_config.version, @appliance_config.release,
+                                                  @appliance_config.os.name, @appliance_config.os.version, @appliance_config.hardware.arch,
+                                                  current_platform].join("-"))
       set_default_config_value('domain_type', false)
       set_default_config_value('virt_type', false)
       set_default_config_value('bus', false)
@@ -78,11 +117,12 @@ module BoxGrinder
     def validate
       set_defaults
 
-      @libvirt_capabilities = LibVirtCapabilities.new(:log => @log)
+      @libvirt_capabilities = LibvirtCapabilities.new(:log => @log)
       @image_delivery_uri = URI.parse(@plugin_config['image_delivery_uri'])
       @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] || @image_delivery_uri.path)
 
-      ['xml_only','network', 'domain_type', 'virt_type', 'undefine_existing', 'script', 'bus', 'appliance_name'].each do |v|
+      ['xml_only','network', 'domain_type', 'virt_type', 'undefine_existing', 'script', 'bus', 'appliance_name',
+      'default_permissions', 'overwrite'].each do |v|
         self.instance_variable_set(:"@#{v}", @plugin_config[v])
       end
 
@@ -169,8 +209,8 @@ module BoxGrinder
       :password => @image_delivery_uri.password)
 
       uploader.upload_files(@image_delivery_uri.path,
-                            @plugin_config['default_permissions'],
-                            @plugin_config['overwrite'],
+                            @default_permissions,
+                            @overwrite,
                             File.basename(@previous_deliverables.disk) => @previous_deliverables.disk)
     ensure
       uploader.disconnect if uploader.connected?
@@ -254,4 +294,4 @@ module BoxGrinder
   end
 end
 
-plugin :class => BoxGrinder::LibVirtPlugin, :type => :delivery, :name => :libvirt, :full_name => "libVirt Virtualisation API"
+plugin :class => BoxGrinder::LibvirtPlugin, :type => :delivery, :name => :libvirt, :full_name => "libVirt Virtualisation API"

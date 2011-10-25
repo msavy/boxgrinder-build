@@ -22,7 +22,7 @@ require 'nokogiri'
 require 'ostruct'
 
 module BoxGrinder
-  class LibVirtCapabilities
+  class LibvirtCapabilities
 
     class Domain
      include Comparable
@@ -60,10 +60,10 @@ module BoxGrinder
 
     # Arrays are populated in order of precedence. Best first.
     DEFAULT_DOMAIN_MAPPINGS = {
-      :xen =>  { :bus => :xen, :virt_rank => [:linux, :hvm] },
+      :xen =>  { :bus => :xen, :virt_rank => [:xen, :linux, :hvm] },
       :kqemu => { :bus => :virtio, :virt_rank => [:hvm] },
-      :kvm => { :bus => :virtio, :virt_rank => [:linux, :hvm] },
-      :qemu => { :bus => :ide, :virt_rank => [:linux, :hvm] },
+      :kvm => { :bus => :virtio, :virt_rank => [:xen, :linux, :hvm] },
+      :qemu => { :bus => :ide, :virt_rank => [:xen, :linux, :hvm] },
       :vbox => { :bus => :virtio, :virt_rank => [:hvm] },
       :vmware => { :bus => :ide, :virt_rank => [:hvm] }
     }
