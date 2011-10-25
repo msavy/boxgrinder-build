@@ -98,7 +98,7 @@ module BoxGrinder
       guests = root.xpath("//guest/arch[@name='x86_64']/..")
 
       guests = guests.sort do |a, b|
-        dom_maps = [a,b].map { |x| plugin.domain_map[xpath_first_intern(x,".//domain/@type")] }
+        dom_maps = [a,b].map { |x| plugin.domain_map[xpath_first_intern(x, './/domain/@type')] }
 
         # Handle unknown mappings
         next resolve_unknowns(dom_maps) if dom_maps.include?(nil)
@@ -108,7 +108,7 @@ module BoxGrinder
 
         # Compare according to virtualisation ranking
         virt_rank = [a,b].enum_for(:each_with_index).map do |x, i|
-          dom_maps[i][:domain].virt_map[xpath_first_intern(x,'.//os_type')]
+          dom_maps[i][:domain].virt_map[xpath_first_intern(x, './/os_type')]
         end
 
         # Handle unknown mappings
@@ -131,13 +131,13 @@ module BoxGrinder
     end
 
     def build_guest(xml)
-      dom = DOMAINS[xpath_first_intern(xml,".//domain/@type")]
+      dom = DOMAINS[xpath_first_intern(xml, ".//domain/@type")]
       bus = 'ide'
       bus = dom.bus if dom
 
       OpenStruct.new({
-        :domain_type => xpath_first_intern(xml,".//domain/@type"),
-        :os_type => xpath_first_intern(xml,'.//os_type'),
+        :domain_type => xpath_first_intern(xml, ".//domain/@type"),
+        :os_type => xpath_first_intern(xml, './/os_type'),
         :bus => bus
       })
     end

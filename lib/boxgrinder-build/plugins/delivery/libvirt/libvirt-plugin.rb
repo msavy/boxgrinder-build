@@ -30,10 +30,10 @@ require 'ostruct'
 
 module BoxGrinder
 
-  # @plugin_config [String] libvirt_hypervisor_uri Libvirt endpoint address. If you are
+  # @plugin_config [String] libvirt_uri Libvirt endpoint address. If you are
   #   using authenticated transport such as +ssh+ you should register your keys with
-  #   an ssh agent. See: {http://libvirt.org/uri.html Libvirt Connection URIs}
-  #   * Default: _empty string_.
+  #   an ssh agent. See: {http://libvirt.org/uri.html Libvirt Connection URIs}. Examples:
+  #   * Default: +empty string+
   #   * <tt>qemu+ssh://user@example.com/system</tt>
   #   * +qemu:///system+
   #
@@ -43,17 +43,21 @@ module BoxGrinder
   #   * +sftp\://user@example.com/some/path+
   #   * +sftp\://user:pass@example.com/some/path+ It is advisable to use keys with ssh-agent.
   #
-  # @plugin_config [Int] default_permissions Permissions of delivered image (default: 0770)
-  #   * Default: +0770+, +0755+
+  # @plugin_config [Int] default_permissions Permissions of delivered image. Examples:
+  #   * Default: +0770+
+  #   * +0755+
   #
   # @plugin_config [String] libvirt_image_uri Where the image will be on the Libvirt machine.
+  #   Examples:
   #   * Default: +image_delivery_uri+ _path_ element.
   #   * +/var/lib/libvirt/images+
   #
-  # @plugin_config [Int] overwrite Overwrite any identically named file at the delivery path
+  # @plugin_config [Int] overwrite Overwrite any identically named file at the delivery path.
+  #   Examples:
   #   * Default: +false+
   #
-  # @plugin_config [Bool] undefine_existing Undefine any existing domain of the same name
+  # @plugin_config [Bool] undefine_existing Undefine any existing domain of the same name.
+  #   Examples:
   #   * Default: +false+
   #
   # @plugin_config [String] script Path to user provided script to modify XML before registration
@@ -67,18 +71,20 @@ module BoxGrinder
   #   * Default: +false+
   #
   # @plugin_config [String] appliance_name Name for the appliance to be registered as in Libvirt.
+  #   Examples:
   #   * Default: +name-version-release-os_name-os_version-arch-platform+
   #   * +boxgrinder_rocks_f16+
   #
-  # @plugin_config [String] domain_type Libvirt domain type (e.g. qemu, kvm)
+  # @plugin_config [String] domain_type Libvirt domain type. Examples:
   #   * Default is a calculated value. Unless you are using +xml_only+ the remote instance will
   #     be contacted and an attempt to determine the best value will be made. If +xml_only+
   #     is set then a safe pre-determined default is used. User-set values take precedence.
   #     See _type_: {http://libvirt.org/formatdomain.html#elements Domain format}
+  #   * +qemu+, +kvm+, +xen+
   #
-  # @plugin_config [String] virt_type Libvirt virt type.
+  # @plugin_config [String] virt_type Libvirt virt type. Examples:
   #   * Default is a calculated value. Where available paravirtual is preferred.
-  #     See _type_: {http://libvirt.org/formatdomain.html#elementsOSBIOS BIOS bootloader}
+  #     See _type_: {http://libvirt.org/formatdomain.html#elementsOSBIOS BIOS bootloader}.
   #   * +hvm+, +xen+, +linux+
   #
   # @plugin_config [String] bus Disk bus. Examples:
@@ -87,13 +93,12 @@ module BoxGrinder
   #   * +virtio+, +ide+
   #
   # @plugin_config [String] network Network name. If you require a more complex setup
-  #   than a simple network name, then you should create and set a +script+
-  #   * default: +default+
+  #   than a simple network name, then you should create and set a +script+.
+  #   * Default: +default+
   class LibvirtPlugin < BasePlugin
 
     def set_defaults
-
-      set_default_config_value('libvirt_hypervisor_uri', '')
+      set_default_config_value('libvirt_uri', '')
       set_default_config_value('script', false)
       set_default_config_value('image_delivery_uri', '/var/lib/libvirt/images/')
       set_default_config_value('libvirt_image_uri', false)
@@ -111,7 +116,7 @@ module BoxGrinder
       set_default_config_value('bus', false)
       set_default_config_value('network', 'default')
 
-      patch
+      libvirt_code_patch
     end
 
     def validate
@@ -121,23 +126,23 @@ module BoxGrinder
       @image_delivery_uri = URI.parse(@plugin_config['image_delivery_uri'])
       @libvirt_image_uri = (@plugin_config['libvirt_image_uri'] || @image_delivery_uri.path)
 
-      ['xml_only','network', 'domain_type', 'virt_type', 'undefine_existing', 'script', 'bus', 'appliance_name',
-      'default_permissions', 'overwrite'].each do |v|
+      ['xml_only', 'network', 'domain_type', 'virt_type', 'undefine_existing', 'script', 'bus',
+       'appliance_name', 'default_permissions', 'overwrite'].each do |v|
         self.instance_variable_set(:"@#{v}", @plugin_config[v])
       end
 
       @remote_no_verify = @plugin_config['remote_no_verify'] ? 1 : 0
 
-      (@libvirt_hypervisor_uri.include?('?') ? '&' : '?') + "no_verify=#{@remote_no_verify}"
-      @libvirt_hypervisor_uri = URI.parse(@plugin_config['libvirt_hypervisor_uri'])
+      (@libvirt_uri.include?('?') ? '&' : '?') + "no_verify=#{@remote_no_verify}"
+      @libvirt_uri = URI.parse(@plugin_config['libvirt_uri'])
     end
 
     def execute
       if @image_delivery_uri.scheme =~ /(sftp)/
-        @log.info("Assuming this is a remote SFTP address.")
+        @log.info("Transferring file via SFTP...")
         upload_image
       else
-        @log.info("Copying disk #{@previous_deliverables.disk} to: #{@image_delivery_uri.path}")
+        @log.info("Copying disk #{@previous_deliverables.disk} to: #{@image_delivery_uri.path}...")
         FileUtils.cp(@previous_deliverables.disk, @image_delivery_uri.path)
       end
 
@@ -151,19 +156,21 @@ module BoxGrinder
       write_xml(xml)
     end
 
+    # Interact with a libvirtd, attempt to determine optimal settings where possible.
+    # Register the appliance as a new domain.
     def determine_remotely
       # Remove password field from URI, as libvirt doesn't support it directly. We can use it for passphrase if needed.
-      lv_uri = URI::Generic.build(:scheme => @libvirt_hypervisor_uri.scheme, :userinfo => @libvirt_hypervisor_uri.user,
-                                  :host => @libvirt_hypervisor_uri.host, :path => @libvirt_hypervisor_uri.path,
-                                  :query => @libvirt_hypervisor_uri.query)
+      lv_uri = URI::Generic.build(:scheme => @libvirt_uri.scheme, :userinfo => @libvirt_uri.user,
+                                  :host => @libvirt_uri.host, :path => @libvirt_uri.path,
+                                  :query => @libvirt_uri.query)
 
-      # The authentication only pertains to libvirtd itself and _not_ the transport (e.g. SSH)
+      # The authentication only pertains to libvirtd itself and _not_ the transport (e.g. SSH).
       conn = Libvirt::open_auth(lv_uri.to_s, [Libvirt::CRED_AUTHNAME, Libvirt::CRED_PASSPHRASE]) do |cred|
         case cred["type"]
           when Libvirt::CRED_AUTHNAME
-            @libvirt_hypervisor_uri.user
+            @libvirt_uri.user
           when Libvirt::CRED_PASSPHRASE
-            @libvirt_hypervisor_uri.password
+            @libvirt_uri.password
         end
       end
 
@@ -179,7 +186,7 @@ module BoxGrinder
       guest = @libvirt_capabilities.determine_capabilities(conn, @previous_plugin_info)
       raise "Remote libvirt machine offered no viable guests!" if guest.nil?
 
-      xml = build_xml(guest)
+      xml = generate_xml(guest)
       @log.info("Defining domain #{@appliance_name}")
       conn.define_domain_xml(xml)
       xml
@@ -189,17 +196,18 @@ module BoxGrinder
       end
     end
 
-    # If we just want to dump a basic XML skeleton and provide sensible defaults
+    # Make no external connections, just dump a basic XML skeleton and provide sensible defaults
+    # where user provided values are not given.
     def determine_locally
       domain = @libvirt_capabilities.get_plugin(@previous_plugin_info).domain_rank.last
-      build_xml(OpenStruct.new({
+      generate_xml(OpenStruct.new({
         :domain_type => domain.name,
         :os_type => domain.virt_rank.last,
         :bus => domain.bus
       }))
     end
 
-    # Remote only
+    # Upload an image via SFTP
     def upload_image
       uploader = SFTPHelper.new(:log => @log)
 
@@ -216,30 +224,34 @@ module BoxGrinder
       uploader.disconnect if uploader.connected?
     end
 
-    def build_xml(guest)
-      _build_xml(:domain_type => (@domain_type || guest.domain_type),
+    # Preferentially choose user settings
+    def generate_xml(guest)
+      build_xml(:domain_type => (@domain_type || guest.domain_type),
                 :os_type => (@virt_type || guest.os_type),
                 :bus => (@bus || guest.bus))
     end
 
-    def _build_xml(options = {})
-      {:bus => @bus, :domain_type => @previous_plugin_info[:name], :os_type => :hvm}.merge!(options)
+    # Build the XML domain definition. If the user provides a script, it will be called after
+    # the basic definition has been constructed with the XML as the sole parameter. The output
+    # from stdout of the script will be used as the new domain definition.
+    def build_xml(opts = {})
+      {:bus => @bus, :os_type => :hvm}.merge!(opts)
 
       builder = Builder::XmlMarkup.new(:indent => 2)
 
-      xml = builder.domain(:type => options[:domain_type].to_s) do |domain|
+      xml = builder.domain(:type => opts[:domain_type].to_s) do |domain|
         domain.name(@appliance_name)
         domain.description(@appliance_config.summary)
         domain.memory(@appliance_config.hardware.memory * 1024) #KB
         domain.vcpu(@appliance_config.hardware.cpus)
         domain.os do |os|
-          os.type(options[:os_type].to_s, :arch => @appliance_config.hardware.arch)
+          os.type(opts[:os_type].to_s, :arch => @appliance_config.hardware.arch)
           os.boot(:dev => 'hd')
         end
         domain.devices do |devices|
           devices.disk(:type => 'file', :device => 'disk') do |disk|
             disk.source(:file => "#{@libvirt_image_uri}/#{File.basename(@previous_deliverables.disk)}")
-            disk.target(:dev => 'hda', :bus => options[:bus].to_s)
+            disk.target(:dev => 'hda', :bus => opts[:bus].to_s)
           end
           devices.interface(:type => 'network') do |interface|
             interface.source(:network => @network)
@@ -261,6 +273,7 @@ module BoxGrinder
       xml
     end
 
+    # Look up a domain by name
     def get_existing_domain(conn, name)
       return conn.lookup_domain_by_name(name)
     rescue Libvirt::Error => e
@@ -268,6 +281,7 @@ module BoxGrinder
       raise # Otherwise reraise
     end
 
+    # Undefine a domain. The domain will be destroyed first if required.
     def undefine_domain(dom)
       case dom.info.state
         when Libvirt::Domain::RUNNING, Libvirt::Domain::PAUSED, Libvirt::Domain::BLOCKED
@@ -276,9 +290,9 @@ module BoxGrinder
       dom.undefine
     end
 
-    # Current libvirt library provides no way of getting the libvirt_code for
-    # errors, this patches it in. If an update fixes this, do nothing.
-    def patch
+    # Libvirt library in older version of Fedora provides no way of getting the
+    # libvirt_code for errors, this patches it in. If an update fixes this it does nothing.
+    def libvirt_code_patch
       return if Libvirt::Error.respond_to?(:libvirt_code, false)
       Libvirt::Error.module_eval do
         def libvirt_code; @libvirt_code end
