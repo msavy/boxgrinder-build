@@ -32,15 +32,15 @@ module BoxGrinder
 
   # @plugin_config [String] connection_uri Libvirt endpoint address. If you are
   #   using authenticated transport such as +ssh+ you should register your keys with
-  #   an ssh agent. See: {http://libvirt.org/uri.html Libvirt Connection URIs}. Examples:
+  #   an ssh agent. See: {http://libvirt.org/uri.html Libvirt Connection URIs}.
   #   * Default: +empty string+
-  #   * <tt>qemu+ssh://user@example.com/system</tt>
+  #   * Examples: <tt>qemu+ssh://user@example.com/system</tt>
   #   * +qemu:///system+
   #
   # @plugin_config [String] image_delivery_uri Where to deliver the image to. This must be a
   #   local path or an SFTP address. The local ssh-agent is used for keys if available.
   #   * Default: +/var/lib/libvirt/images+
-  #   * +sftp\://user@example.com/some/path+
+  #   * Examples: +sftp\://user@example.com/some/path+
   #   * +sftp\://user:pass@example.com/some/path+ It is advisable to use keys with ssh-agent.
   #
   # @plugin_config [String] libvirt_image_uri Where the image will be on the Libvirt machine.
@@ -293,6 +293,7 @@ module BoxGrinder
       end
     end
 
+    # Write domain XML to file
     def write_xml(xml)
       fname = "#{@appliance_name}.xml"
       File.open("#{@dir.tmp}/#{fname}",'w'){|f| f.write(xml)}
