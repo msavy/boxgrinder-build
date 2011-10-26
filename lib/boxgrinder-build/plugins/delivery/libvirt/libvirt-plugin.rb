@@ -38,19 +38,18 @@ module BoxGrinder
   #   * +qemu:///system+
   #
   # @plugin_config [String] image_delivery_uri Where to deliver the image to. This must be a
-  #   local path or an SFTP address. The local ssh-agent is used for keys if available. Examples:
+  #   local path or an SFTP address. The local ssh-agent is used for keys if available.
   #   * Default: +/var/lib/libvirt/images+
   #   * +sftp\://user@example.com/some/path+
   #   * +sftp\://user:pass@example.com/some/path+ It is advisable to use keys with ssh-agent.
   #
   # @plugin_config [String] libvirt_image_uri Where the image will be on the Libvirt machine.
-  #     Examples:
   #   * Default: +image_delivery_uri+ _path_ element.
-  #   * +/var/lib/libvirt/images+
+  #   * Example: +/var/lib/libvirt/images+
   #
   # @plugin_config [Int] default_permissions Permissions of delivered image. Examples:
   #   * Default: +0770+
-  #   * +0755+
+  #   * Examples: +0755+, +0775+
   #
   # @plugin_config [Int] overwrite Overwrite any identically named file at the delivery path.
   #   Also undefines any existing domain of the same name.
@@ -67,26 +66,26 @@ module BoxGrinder
   #   * Default: +false+
   #
   # @plugin_config [String] appliance_name Name for the appliance to be registered as in Libvirt.
-  #   Examples:
+  #   At present the user can only specify literal strings.
   #   * Default: +name-version-release-os_name-os_version-arch-platform+
-  #   * +boxgrinder_rocks_f16+
+  #   * Example: +boxgrinder-f16-rocks+
   #
-  # @plugin_config [String] domain_type Libvirt domain type. Examples:
+  # @plugin_config [String] domain_type Libvirt domain type.
   #   * Default is a calculated value. Unless you are using +xml_only+ the remote instance will
   #     be contacted and an attempt to determine the best value will be made. If +xml_only+
   #     is set then a safe pre-determined default is used. User-set values take precedence.
   #     See _type_: {http://libvirt.org/formatdomain.html#elements Domain format}
-  #   * +qemu+, +kvm+, +xen+
+  #   * Examples: +qemu+, +kvm+, +xen+
   #
-  # @plugin_config [String] virt_type Libvirt virt type. Examples:
+  # @plugin_config [String] virt_type Libvirt virt type.
   #   * Default is a calculated value. Where available paravirtual is preferred.
   #     See _type_: {http://libvirt.org/formatdomain.html#elementsOSBIOS BIOS bootloader}.
-  #   * +hvm+, +xen+, +linux+
+  #   * Examples: +hvm+, +xen+, +linux+
   #
-  # @plugin_config [String] bus Disk bus. Examples:
+  # @plugin_config [String] bus Disk bus.
   #   * Default is a pre-determined value depending on the domain type. User-set values take
   #     precedence
-  #   * +virtio+, +ide+
+  #   * Examples: +virtio+, +ide+
   #
   # @plugin_config [String] network Network name. If you require a more complex setup
   #   than a simple network name, then you should create and set a +script+.
@@ -133,7 +132,7 @@ module BoxGrinder
     end
 
     def execute
-      if @image_delivery_uri.scheme =~ /(sftp)/
+      if @image_delivery_uri.scheme =~ /sftp/
         @log.info("Transferring file via SFTP...")
         upload_image
       else
@@ -286,7 +285,7 @@ module BoxGrinder
     end
 
     # Libvirt library in older version of Fedora provides no way of getting the
-    # libvirt_code for errors, this patches it in. If an update fixes this it does nothing.
+    # libvirt_code for errors, this patches it in.
     def libvirt_code_patch
       return if Libvirt::Error.respond_to?(:libvirt_code, false)
       Libvirt::Error.module_eval do
