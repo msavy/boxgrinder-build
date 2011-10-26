@@ -295,7 +295,6 @@ module BoxGrinder
 
     def write_xml(xml)
       fname = "#{@appliance_name}.xml"
-      puts fname
       File.open("#{@dir.tmp}/#{fname}",'w'){|f| f.write(xml)}
       register_deliverable(:xml => fname)
     end
