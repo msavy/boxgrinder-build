@@ -25,6 +25,8 @@ require 'boxgrinder-core/helpers/appliance-definition-helper'
 require 'boxgrinder-core/helpers/appliance-config-helper'
 require 'boxgrinder-build/helpers/plugin-helper'
 require 'boxgrinder-build/managers/plugin-manager'
+require 'boxgrinder-build/util/permissions/write-monitor'
+require 'boxgrinder-build/util/permissions/write-observer'
 
 module BoxGrinder
   class Appliance
@@ -72,7 +74,7 @@ module BoxGrinder
 
       if delivery_selected?
         delivery_plugin, delivery_plugin_info = PluginManager.instance.initialize_plugin(:delivery, @config.delivery)
-        # Here we need to specify additionaly the type of the plugin, as some delivery plugins
+        # Here we need to specify additionally the type of the plugin, as some delivery plugins
         # can have multiple types of delivery implemented. See s3-plugin.rb for example.
         initialize_plugin(delivery_plugin, delivery_plugin_info, :type => @config.delivery)
       end
@@ -118,7 +120,11 @@ module BoxGrinder
 
     def execute_plugin_chain
       @log.info "Building '#{@appliance_config.name}' appliance for #{@appliance_config.hardware.arch} architecture."
-      @plugin_chain.each { |p| execute_plugin(p[:plugin], p[:param]) }
+      @plugin_chain.each do |p|
+        execute_plugin(p[:plugin], p[:param])
+        # stop capturing, fire chowning stuff
+        WriteMonitor.instance.stop if p[:plugin].plugin_info[:type] == :os
+      end
     end
 
     # This creates the appliance by executing the plugin chain.
@@ -127,7 +133,7 @@ module BoxGrinder
     # and every plugin in the chain is initialized and validated. The next step
     # is the execution of the plugin chain, step by step.
     #
-    # Below you can find the whole process of bootstraping a plugin.
+    # Below you can find the whole process of bootstrapping a plugin.
     #
     #   Call            Scope
     #   ------------------------------------------
@@ -177,31 +183,6 @@ module BoxGrinder
         plugin.after_execute if plugin.respond_to?(:after_execute)
 
         @log.debug "#{plugin.plugin_info[:type].to_s.capitalize} plugin executed."
-      end
-      if plugin.plugin_info[:type] == :os
-        FileUtils.chown_R(@config.uid, @config.gid, File.join(@config.dir.root, @config.dir.build))
-        @log.debug "Lowering from root to user."
-        change_user(@config.uid, @config.gid)
-      end
-    end
-
-    def change_user(u, g)
-      begin
-        if Process::Sys.respond_to?(:setresgid) && Process::Sys.respond_to?(:setresuid)
-          Process::Sys.setresgid(g, g, g)
-          Process::Sys.setresuid(u, u, u)
-          return
-        end
-      rescue NotImplementedError
-      end
-
-      begin
-        # JRuby doesn't support saved ids, use this instead.
-        Process.gid = g
-        Process.egid = g
-        Process.uid = u
-        Process.euid = u
-      rescue NotImplementedError
       end
     end
   end
