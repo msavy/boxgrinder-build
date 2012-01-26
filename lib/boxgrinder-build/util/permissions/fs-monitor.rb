@@ -20,10 +20,9 @@ require 'thread'
 require 'observer'
 require 'pathname'
 require 'singleton'
-require 'thread'
 
 module BoxGrinder
-  class WriteMonitor
+  class FSMonitor
     include Singleton
     include Observable
 
@@ -34,12 +33,14 @@ module BoxGrinder
       set_hooks
     end
 
-    # Start capturing the paths of any File write. Providing a block
-    # automatically stops the capture process after the terminating scope.
+    # Start capturing paths. Providing a block automatically stops the capture
+    # process upon termination of the scope.
     #
-    # This version is fairly blunt. If write() or write_nonblock() has not
-    # yet been reached by the end of the block{}/stop(), then the IO will
-    # be missed.
+    # @param Array<#update> Observers to be notified of capture events. Each
+    #   observer should expect a hash{} containing a +:command+, and potentially
+    #   +:data+.
+    #
+    # @yield Block that automatically stops capturing at the end of scope.
     def capture(*observers, &block)
       @lock_a.synchronize do
         add_observers(observers)
@@ -52,13 +53,15 @@ module BoxGrinder
       end
     end
 
-    # Explicitly stop capturing paths of File writes
-    # Use this if you do not use `capture` with a block
+    # Explicitly stop capturing paths. This should be utilised if capture was
+    # not used with a block. Fires the +:stop_capture+ command to indicate that
+    # capturing has ceased.
     def stop
       @lock_a.synchronize { _stop }
     end
 
-    # Stop any capturing and delete observers
+    # Stop any capturing and delete all observers
+    # @see #stop
     def reset
       @lock_a.synchronize do
         _stop
@@ -66,22 +69,27 @@ module BoxGrinder
       end
     end
 
-    # Add a path string, this is called from the IO write() method.
-    def add_path(p)
+    # Add a path string. Called by the hooked methods when an applicable action
+    # is triggered and capturing is enabled. Fires the +:add_paths+ command, and
+    # includes the full path as +:data+.
+    #
+    # @param [String] path Filesystem path.
+    def add_path(path)
       @lock_b.synchronize do
         raise "No observers set!" if count_observers.zero?
         changed(true)
-        notify_observers(:command => :add_paths, :data => realpath(p))
+        notify_observers(:command => :add_paths, :data => realpath(path))
       end
     end
 
     private # Not threadsafe
 
+    # The hooks will all use the same lock as a basic semaphore to determine
+    # when to begin/cease capturing paths.
     def _capture
-      # Our hooks will all check this same atomic lock.
       @flag.lock
     end
-
+    
     def _stop
       @flag.unlock
       changed(true)
@@ -102,8 +110,8 @@ module BoxGrinder
       end
     end
 
+    # Hooks into class methods by accessing the eigenclass (virtual class).
     def eigen_capture(klazz, m_sym, flag, &blk)
-      # Get virtual class
       v_klazz = (class << klazz; self; end)
       instance_capture(v_klazz, m_sym, flag, &blk)
     end
@@ -112,6 +120,14 @@ module BoxGrinder
       Array(m_sym).each{ |sym| alias_and_capture(klazz, sym, flag, &blk) }
     end
 
+    # Cracks open the target class, and injects a wrapper to enable
+    # monitoring. By aliasing the original method the wrapper intercepts the
+    # call, which it forwards onto the 'real' method before executing the hook.
+    #
+    # The hook's functionality is provided via a &block, which is passed the
+    # caller's +self+ in addition to the wrapped method's parameters.
+    #
+    # Locking the +flag+ signals the hook to begin capturing.
     def alias_and_capture(klazz, m_sym, flag, &blk)
       alias_m_sym = "__alias_#{m_sym}"
 
@@ -130,10 +146,13 @@ module BoxGrinder
       observers.each{ |o| add_observer(o) }
     end
 
+    # Transform relative to absolute path
     def realpath(path)
       Pathname.new(path).realpath.to_s
     end
 
+    # For a path relative such as 'x/y/z' returns 'x'. Useful for #mkdir_p
+    # where the entire new path is returned at once.
     def root_dir(relpath)
       r = relpath.match(%r(^[/]?.+?[/$]))
       return relpath if r.nil?

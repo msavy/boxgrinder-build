@@ -25,8 +25,8 @@ require 'boxgrinder-core/helpers/appliance-definition-helper'
 require 'boxgrinder-core/helpers/appliance-config-helper'
 require 'boxgrinder-build/helpers/plugin-helper'
 require 'boxgrinder-build/managers/plugin-manager'
-require 'boxgrinder-build/util/permissions/write-monitor'
-require 'boxgrinder-build/util/permissions/write-observer'
+require 'boxgrinder-build/util/permissions/fs-monitor'
+require 'boxgrinder-build/util/permissions/fs-observer'
 
 module BoxGrinder
   class Appliance
@@ -122,8 +122,8 @@ module BoxGrinder
       @log.info "Building '#{@appliance_config.name}' appliance for #{@appliance_config.hardware.arch} architecture."
       @plugin_chain.each do |p|
         execute_plugin(p[:plugin], p[:param])
-        # stop capturing, fire chowning stuff
-        WriteMonitor.instance.stop if p[:plugin].plugin_info[:type] == :os
+        # stop capturing, fire ownership changes
+        FSMonitor.instance.stop if p[:plugin].plugin_info[:type] == :os && @config.change_to_user
       end
     end
 
