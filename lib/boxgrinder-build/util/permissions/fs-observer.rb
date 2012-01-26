@@ -21,7 +21,7 @@ require 'set'
 require 'thread'
 
 module BoxGrinder
-  class WriteObserver
+  class FSObserver
     attr_accessor :path_set
     attr_accessor :filter_set
 
@@ -49,7 +49,7 @@ module BoxGrinder
     private
 
     def subdirectory_regex(paths)
-      paths.to_a.collect{ |p| Regexp.new("^#{p}/") }
+      Array(paths).collect{ |p| Regexp.new("^#{p}/") }
     end
 
     def do_chown

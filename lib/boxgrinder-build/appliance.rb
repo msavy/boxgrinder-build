@@ -25,8 +25,8 @@ require 'boxgrinder-core/helpers/appliance-definition-helper'
 require 'boxgrinder-core/helpers/appliance-config-helper'
 require 'boxgrinder-build/helpers/plugin-helper'
 require 'boxgrinder-build/managers/plugin-manager'
-require 'boxgrinder-build/util/permissions/write-monitor'
-require 'boxgrinder-build/util/permissions/write-observer'
+require 'boxgrinder-build/util/permissions/fs-monitor'
+require 'boxgrinder-build/util/permissions/fs-observer'
 
 module BoxGrinder
   class Appliance

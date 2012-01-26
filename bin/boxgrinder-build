@@ -26,8 +26,8 @@ require 'boxgrinder-core/models/config'
 require 'boxgrinder-core/helpers/log-helper'
 require 'boxgrinder-build/appliance'
 
-require 'boxgrinder-build/util/permissions/write-observer'
-require 'boxgrinder-build/util/permissions/write-monitor'
+require 'boxgrinder-build/util/permissions/fs-observer'
+require 'boxgrinder-build/util/permissions/fs-monitor'
 
 options = OpenCascade.new(
     :platform => :none,
@@ -192,9 +192,9 @@ begin
   end
 
   config = BoxGrinder::Config.new(options)
-  observer = BoxGrinder::WriteObserver.new(config.uid, config.gid)
-  # begin capturing writes/mkdir etc.
-  BoxGrinder::WriteMonitor.instance.capture(observer)
+  fs_observer = BoxGrinder::FSObserver.new(config.uid, config.gid)
+  # Begin monitoring.
+  BoxGrinder::FSMonitor.instance.capture(fs_observer)
   log = BoxGrinder::LogHelper.new(:level => config.log_level)
 
   begin
