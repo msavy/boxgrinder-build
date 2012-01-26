@@ -122,8 +122,8 @@ module BoxGrinder
       @log.info "Building '#{@appliance_config.name}' appliance for #{@appliance_config.hardware.arch} architecture."
       @plugin_chain.each do |p|
         execute_plugin(p[:plugin], p[:param])
-        # stop capturing, fire chowning stuff
-        WriteMonitor.instance.stop if p[:plugin].plugin_info[:type] == :os && @config.change_to_user
+        # stop capturing, fire ownership changes
+        FSMonitor.instance.stop if p[:plugin].plugin_info[:type] == :os && @config.change_to_user
       end
     end
 
