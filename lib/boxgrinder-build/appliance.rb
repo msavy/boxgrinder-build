@@ -123,7 +123,7 @@ module BoxGrinder
       @plugin_chain.each do |p|
         execute_plugin(p[:plugin], p[:param])
         # stop capturing, fire chowning stuff
-        WriteMonitor.instance.stop if p[:plugin].plugin_info[:type] == :os
+        WriteMonitor.instance.stop if p[:plugin].plugin_info[:type] == :os && @config.change_to_user
       end
     end
 
