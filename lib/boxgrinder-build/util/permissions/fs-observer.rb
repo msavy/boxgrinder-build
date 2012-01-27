@@ -18,7 +18,6 @@
 
 require 'fileutils'
 require 'set'
-require 'thread'
 
 module BoxGrinder
   class FSObserver

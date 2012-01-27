@@ -20,7 +20,6 @@ require 'thread'
 require 'observer'
 require 'pathname'
 require 'singleton'
-require 'thread'
 
 module BoxGrinder
   class FSMonitor
