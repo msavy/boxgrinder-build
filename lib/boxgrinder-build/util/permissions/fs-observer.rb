@@ -34,7 +34,7 @@ module BoxGrinder
 
     def update(update={})
       case update[:command]
-        when :add_paths
+        when :add_path
           unless match_filter?(update[:data])
             @path_set.add(update[:data])
             @filter_set.merge(subdirectory_regex(update[:data]))
