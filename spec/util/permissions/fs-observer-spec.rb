@@ -92,7 +92,6 @@ module BoxGrinder
       end
       
       context ":command=:stop_capture" do
-
         let(:update_a){ path_update(subject, '/a/path') }  
         let(:update_b){ path_update(subject, '/b/path') }        
 
