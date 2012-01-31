@@ -50,7 +50,7 @@ module BoxGrinder
     #       observer will change ownership of the files, and switch
     #       to the user specified at #initialize.
     # @option opts [String] :data Contains a resource path when the 
-    #  +:add_path+ command is called, otherwise ignored.  
+    #   - +:add_path+ command is called, otherwise ignored.  
     def update(update={})
       case update[:command]
         when :add_path
