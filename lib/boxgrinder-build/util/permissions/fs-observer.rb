@@ -32,7 +32,7 @@ module BoxGrinder
     # @option opts [String] :paths Additional path to to change
     # ownership of
     def initialize(user, group, opts={})
-      @path_set = Set.new(opts[:paths].to_a)
+      @path_set = Set.new(Array(opts[:paths]))
       # Filter some default directories, plus any subdirectories of
       # paths we discover at runtime
       @filter_set = Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux)/)])
@@ -58,9 +58,8 @@ module BoxGrinder
             @path_set.add(update[:data])
             @filter_set.merge(subdirectory_regex(update[:data]))
           end
-        when :stop_capture
+        when :stop_capture, :chown
           do_chown
-          change_user
       end
     end
 
@@ -76,24 +75,6 @@ module BoxGrinder
 
     def match_filter?(path)
       @filter_set.inject(false){ |accum, filter| accum || !!(path =~ filter) }
-    end
-
-    def change_user
-      begin
-        if Process::Sys.respond_to?(:setresgid) && Process::Sys.respond_to?(:setresuid)
-          Process::Sys.setresgid(@group, @group, @group)
-          Process::Sys.setresuid(@user, @user, @user)
-          return
-        end
-      rescue NotImplementedError
-      end
-
-      begin
-        # JRuby doesn't support saved ids, use this instead.
-        Process.gid, Process.egid = @group, @group
-        Process.uid, Process.euid = @user, @user
-      rescue NotImplementedError
-      end
     end
   end
 end

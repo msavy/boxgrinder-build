@@ -192,9 +192,10 @@ begin
   end
 
   config = BoxGrinder::Config.new(options)
-  fs_observer = BoxGrinder::FSObserver.new(config.uid, config.gid)
   # Begin monitoring.
-  BoxGrinder::FSMonitor.instance.capture(fs_observer)
+  observer = config.change_to_user ? BoxGrinder::FSObserver.new(config.uid, config.gid) : nil
+  BoxGrinder::FSMonitor.instance.capture(observer)
+
   log = BoxGrinder::LogHelper.new(:level => config.log_level)
 
   begin
@@ -213,4 +214,6 @@ rescue => e
   puts
   puts e.message
   abort
+ensure
+  BoxGrinder::FSMonitor.instance.stop
 end
