@@ -71,10 +71,8 @@ module BoxGrinder
 
       begin
         # JRuby doesn't support saved ids, use this instead.
-        Process.gid = @group
-        Process.egid = @group
-        Process.uid = @user
-        Process.euid = @user
+        Process.gid, Process.egid = @group, @group
+        Process.uid, Process.euid = @user, @user
       rescue NotImplementedError
       end
     end
