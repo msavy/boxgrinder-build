@@ -58,9 +58,8 @@ module BoxGrinder
             @path_set.add(update[:data])
             @filter_set.merge(subdirectory_regex(update[:data]))
           end
-        when :stop_capture
+        when :stop_capture, :chown
           do_chown
-#          change_user
       end
     end
 
@@ -80,9 +79,12 @@ module BoxGrinder
 
     public
 
+    # Move to separate class
     def self.change_user(u, g, &blk)
+      puts "------ Changing user #{u}-#{g}"
       change_effective(u, g)
       blk.call
+      puts "------ Changing back to #{Process.gid}-#{Process.uid}"
       change_effective(Process.gid, Process.uid)
     end
 

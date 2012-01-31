@@ -85,6 +85,12 @@ module BoxGrinder
       end
     end
 
+    # Trigger chown
+    def trigger
+      changed(true)
+      notify_observers(:command => :chown)
+    end
+
     private # Not threadsafe
 
     # The hooks will all use the same get-and-set to determine when to

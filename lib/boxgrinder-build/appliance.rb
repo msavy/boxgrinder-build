@@ -124,9 +124,11 @@ module BoxGrinder
       @plugin_chain.each do |p|
         uid, gid =  p[:plugin].plugin_info[:requires_root] ? [@config.uid, @config.gid] : [nil, nil]
 
-        FSObserver.switch_user(uid, gid) do
+        FSObserver.change_user(uid, gid) do
           execute_plugin(p[:plugin], p[:param])
         end
+        # Trigger chown
+        FSMonitor.instance.trigger
       end
       FSMonitor.instance.stop
     end
