@@ -182,23 +182,29 @@ module BoxGrinder
       end
 
       it "should execute the whole plugin chain" do
-        @appliance.instance_variable_set(:@plugin_chain, [{:plugin => :plugin1, :param => 'definition'}, {:plugin => :plugin2}, {:plugin => :plugin3}])
+        plugin1, plugin2, plugin3 = 3.times.map{|i| mock(i).as_null_object}
 
-        @appliance.should_receive(:execute_plugin).ordered.with(:plugin1, 'definition')
-        @appliance.should_receive(:execute_plugin).ordered.with(:plugin2, nil)
-        @appliance.should_receive(:execute_plugin).ordered.with(:plugin3, nil)
+        p_chain =[{:plugin => plugin1, :param => 'definition'},
+          {:plugin => plugin2}, {:plugin => plugin3}]
+
+        @appliance.instance_variable_set(:@plugin_chain, p_chain)
+
+        @appliance.should_receive(:execute_plugin).ordered.with(plugin1, 'definition')
+        @appliance.should_receive(:execute_plugin).ordered.with(plugin2, nil)
+        @appliance.should_receive(:execute_plugin).ordered.with(plugin3, nil)
 
         @appliance.execute_plugin_chain
       end
     end
 
     describe ".initialize_plugins" do
+      let(:os_plugin){ mock("OSPlugin") }
+      let(:platform_plugin){ mock("PlatformPlugin", :deliverables => OpenCascade.new(:disk => 'a/disk.vmdk')) }
+      let(:delivery_plugin){ mock("DeliveryPlugin", :deliverables => {}) }
+
       it "should prepare the plugin chain to create an appliance and convert it to VMware format" do
         prepare_appliance(:platform => :vmware)
         @appliance.instance_variable_set(:@appliance_config, prepare_appliance_config)
-
-        os_plugin = mock("OSPlugin")
-        platform_plugin = mock("PlatformPlugin", :deliverables => OpenCascade.new(:disk => 'a/disk.vmdk'))
 
         @plugin_manager.should_receive(:initialize_plugin).with(:os, :fedora).and_return([os_plugin, "os_plugin_info"])
         @plugin_manager.should_receive(:initialize_plugin).with(:platform, :vmware).and_return([platform_plugin, "platform_plugin_info"])
@@ -217,10 +223,6 @@ module BoxGrinder
         prepare_appliance(:platform => :vmware, :delivery => :s3)
         @appliance.instance_variable_set(:@appliance_config, prepare_appliance_config)
 
-        os_plugin = mock("OSPlugin")
-        platform_plugin = mock("PlatformPlugin")
-        delivery_plugin = mock("DeliveryPlugin", :deliverables => {})
-
         @plugin_manager.should_receive(:initialize_plugin).with(:os, :fedora).and_return([os_plugin, "os_plugin_info"])
         @plugin_manager.should_receive(:initialize_plugin).with(:platform, :vmware).and_return([platform_plugin, "platform_plugin_info"])
         @plugin_manager.should_receive(:initialize_plugin).with(:delivery, :s3).and_return([delivery_plugin, "delivery_plugin_info"])
@@ -238,9 +240,6 @@ module BoxGrinder
       it "should prepare the plugin chain to create an appliance and without conversion deliver to S3" do
         prepare_appliance(:delivery => :s3)
         @appliance.instance_variable_set(:@appliance_config, prepare_appliance_config)
-
-        os_plugin = mock("OSPlugin")
-        delivery_plugin = mock("DeliveryPlugin")
 
         @plugin_manager.should_receive(:initialize_plugin).with(:os, :fedora).and_return([os_plugin, "os_plugin_info"])
         @plugin_manager.should_receive(:initialize_plugin).with(:delivery, :s3).and_return([delivery_plugin, "delivery_plugin_info"])
@@ -271,30 +270,6 @@ module BoxGrinder
 
         @appliance.execute_plugin(plugin, :s3)
       end
-
-      context "user switching" do
-        before(:each) do
-          FileUtils.stub!(:chown_R)
-          @appliance.stub!(:change_user)
-        end
-
-        it "should switch to user from root after execution of OS plugin" do
-          plugin = mock('OSPlugin', :deliverables_exists? => false, :plugin_info => {:name => :test, :type => :os})
-          FileUtils.should_receive(:chown_R).with(501, 501, '/build')
-          @appliance.should_receive(:change_user).with(501, 501)
-          plugin.should_receive(:run).with(:test)
-
-          @appliance.execute_plugin(plugin, :test)
-        end
-
-        it "should switch to user from root after OS plugin even if deliverables exist" do
-          plugin = mock('OSPlugin', :deliverables_exists? => true, :plugin_info => {:name => :test, :type => :os})
-          FileUtils.should_receive(:chown_R).with(501, 501, '/build')
-          @appliance.should_receive(:change_user).with(501, 501)
-
-          @appliance.execute_plugin(plugin, :test)
-        end
-      end
     end
 
     context "preparations" do
@@ -318,30 +293,5 @@ module BoxGrinder
         @appliance.delivery_selected?.should == false
       end
     end
-
-    context ".change_user" do
-      before(:each) do
-        prepare_appliance
-      end
-      context "Interpreters supporting changes to real, effective and saved ids" do
-        it "should change the real, effective and saved uid & gid" do
-          Process::Sys.should_receive(:respond_to?).twice.and_return(true)
-          Process::Sys.should_receive(:setresuid).with(501, 501, 501)
-          Process::Sys.should_receive(:setresgid).with(502, 502, 502)
-          @appliance.change_user(501, 502)
-        end
-      end
-      context "Interpreters only supporting changes to real and effective ids" do
-        it "should change the real and effective uid & gid" do
-          Process::Sys.should_receive(:respond_to?).once.and_return(false)
-          Process.should_receive(:gid=).with(502)
-          Process.should_receive(:egid=).with(502)
-          Process.should_receive(:uid=).with(501)
-          Process.should_receive(:euid=).with(501)
-          @appliance.change_user(501, 502)
-        end
-      end
-    end
-
   end
 end
