@@ -134,13 +134,11 @@ module BoxGrinder
         it "should ignore any paths that no longer exist" do
           subject.stub(:change_user)
 
-          File.stub(:exist?).and_return(true, false)
+          File.stub(:exist?).and_return(false)
           
-          FileUtils.should_receive(:chown_R).
-              with('some-usr', 'some-grp', '/a/path').once
+          FileUtils.should_not_receive(:chown_R)
 
           update_a
-          update_b
           
           subject.update({ :command => :stop_capture })
         end
