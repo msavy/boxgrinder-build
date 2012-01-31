@@ -24,14 +24,33 @@ module BoxGrinder
     attr_accessor :path_set
     attr_accessor :filter_set
 
+    # @param [Integer] user The uid to switch from root to
+    # @param [Integer] group The gid to switch from root to
+    # @param [Hash] opts The options to create a observer with
+    # @option opts [Array<String>] :paths Additional paths to change
+    #   ownership of.
+    # @option opts [String] :paths Additional path to to change
+    # ownership of
     def initialize(user, group, opts={})
       @path_set = Set.new(opts[:paths].to_a)
-      # Filter some default directories, plus any subdirectories of paths we discover at runtime
+      # Filter some default directories, plus any subdirectories of
+      # paths we discover at runtime
       @filter_set = Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux)/)])
       @user = user
       @group = group
     end
 
+    # Receives updates from FSMonitor#add_path
+    #
+    # @param [Hash] opts The options to update the observer
+    # @option opts [:symbol] :command The command to instruct the
+    #   observer to execute.
+    #   - +:add_path+ Indicates the +:data+ field contains a path.
+    #   - +:stop_capture+ indicates that capturing has ceased. The
+    #       observer will change ownership of the files, and switch
+    #       to the user specified at #initialize.
+    # @option opts [String] :data Contains a resource path when the 
+    #  +:add_path+ command is called, otherwise ignored.  
     def update(update={})
       case update[:command]
         when :add_paths
