@@ -21,26 +21,29 @@ require 'observer'
 require 'pathname'
 require 'singleton'
 
+require 'boxgrinder-build/util/concurrent/get_set'
+
 module BoxGrinder
   class FSMonitor
     include Singleton
     include Observable
 
     def initialize
-      @flag =  Mutex.new
+      @flag = GetSet.new
       @lock_a = Mutex.new
       @lock_b = Mutex.new
       set_hooks
     end
 
-    # Start capturing paths. Providing a block automatically stops the capture
-    # process upon termination of the scope.
+    # Start capturing paths. Providing a block automatically stops the
+    # capture process upon termination of the scope.
     #
-    # @param Array<#update> Observers to be notified of capture events. Each
-    #   observer should expect a hash{} containing a +:command+, and potentially
-    #   +:data+.
+    # @param Array<#update> Observers to be notified of capture
+    #   events. Each observer should expect a hash{} containing a
+    #   +:command+, and potentially +:data+.
     #
-    # @yield Block that automatically stops capturing at the end of scope.
+    # @yield Block that automatically calls #stop at the end of scope
+    #   to cease capture.
     def capture(*observers, &block)
       @lock_a.synchronize do
         add_observers(observers)
@@ -53,14 +56,14 @@ module BoxGrinder
       end
     end
 
-    # Explicitly stop capturing paths. This should be utilised if capture was
-    # not used with a block. Fires the +:stop_capture+ command to indicate that
-    # capturing has ceased.
+    # Explicitly stop capturing paths. This should be utilised if
+    # capture was not used with a block. Fires the +:stop_capture+
+    # command to indicate that capturing has ceased.
     def stop
       @lock_a.synchronize { _stop }
     end
 
-    # Stop any capturing and delete all observers
+    # Stop any capturing and delete all observers. Useful for testing.
     # @see #stop
     def reset
       @lock_a.synchronize do
@@ -69,44 +72,49 @@ module BoxGrinder
       end
     end
 
-    # Add a path string. Called by the hooked methods when an applicable action
-    # is triggered and capturing is enabled. Fires the +:add_paths+ command, and
-    # includes the full path as +:data+.
+    # Add a path string. Called by the hooked methods when an
+    # applicable action is triggered and capturing is enabled. Fires
+    # the +:add_path+ command, and includes the full path as +:data+.
     #
     # @param [String] path Filesystem path.
     def add_path(path)
       @lock_b.synchronize do
         raise "No observers set!" if count_observers.zero?
         changed(true)
-        notify_observers(:command => :add_paths, :data => realpath(path))
+        notify_observers(:command => :add_path, :data => realpath(path))
       end
     end
 
     private # Not threadsafe
 
-    # The hooks will all use the same lock as a basic semaphore to determine
-    # when to begin/cease capturing paths.
+    # The hooks will all use the same get-and-set to determine when to
+    # begin/cease capturing paths.
     def _capture
-      @flag.lock
+      @flag.get_set(true)
     end
     
     def _stop
-      @flag.unlock
+      @flag.get_set(false)
       changed(true)
       notify_observers(:command => :stop_capture)
     end
 
+    # Hooks to capture any standard file, link or directory creation. Other
+    # methods (e.g. FileUtils#mkdir_p, FileUtils#move), ultimately bottom out
+    # into these primitive functions.
     def set_hooks
+      # Final splat var captures any other variables we are not interested in,
+      # and avoids them being squashed into the final var.
       eigen_capture(File, [:open, :new], @flag) do |klazz, path, mode, *other|
-        add_path(path) if klazz == File && mode =~ /^(w|a)[+]?$/
-      end
-
-      eigen_capture(Dir, :mkdir, @flag) do |klazz, path, *other|
-        add_path(root_dir(path))
+        add_path(path) if klazz == File && mode =~ /^(w|a)[+]?/
       end
 
       eigen_capture(File, [:rename, :symlink, :link], @flag) do |klazz, old, new, *other|
         add_path(new)
+      end
+
+      eigen_capture(Dir, :mkdir, @flag) do |klazz, path, *other|
+        add_path(root_dir(path))
       end
     end
 
@@ -136,7 +144,7 @@ module BoxGrinder
 
         define_method(m_sym) do |*args, &blx|
          response = send(alias_m_sym, *args, &blx)
-         blk.call(self, *args) if flag.locked?
+           blk.call(self, *args) if flag.get_set
          response
         end
       end
