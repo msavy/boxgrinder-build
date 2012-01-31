@@ -121,20 +121,14 @@ module BoxGrinder
     def execute_plugin_chain
       @log.info "Building '#{@appliance_config.name}' appliance for #{@appliance_config.hardware.arch} architecture."
 
-      change_index = @plugin_chain.each.with_index.inject(@plugin_chain) do |accum, (p, index)|
-        if p[:plugin].plugin_info[:requires_root]
-          @log.debug "Plugin #{index} requires root #{p[:plugin].plugin_info[:full_name]}"
-          index
-        else
-          accum
+      @plugin_chain.each do |p|
+        uid, gid =  p[:plugin].plugin_info[:requires_root] ? [@config.uid, @config.gid] : [nil, nil]
+
+        FSObserver.switch_user(uid, gid) do
+          execute_plugin(p[:plugin], p[:param])
         end
       end
-
-      @plugin_chain.each_with_index do |p, i|
-        execute_plugin(p[:plugin], p[:param])
-        # stop capturing, fire ownership changes
-        FSMonitor.instance.stop if i == change_index && @config.change_to_user
-      end
+      FSMonitor.instance.stop
     end
 
     # This creates the appliance by executing the plugin chain.

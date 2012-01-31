@@ -60,7 +60,7 @@ module BoxGrinder
           end
         when :stop_capture
           do_chown
-          change_user
+#          change_user
       end
     end
 
@@ -78,22 +78,20 @@ module BoxGrinder
       @filter_set.inject(false){ |accum, filter| accum || !!(path =~ filter) }
     end
 
-    def change_user
-      begin
-        if Process::Sys.respond_to?(:setresgid) && Process::Sys.respond_to?(:setresuid)
-          Process::Sys.setresgid(@group, @group, @group)
-          Process::Sys.setresuid(@user, @user, @user)
-          return
-        end
-      rescue NotImplementedError
-      end
+    public
 
-      begin
-        # JRuby doesn't support saved ids, use this instead.
-        Process.gid, Process.egid = @group, @group
-        Process.uid, Process.euid = @user, @user
-      rescue NotImplementedError
-      end
+    def self.change_user(u, g, &blk)
+      change_effective(u, g)
+      blk.call
+      change_effective(Process.gid, Process.uid)
+    end
+
+    private
+
+    def self.change_effective(u, g)
+        Process.egid = g unless g.nil?
+        Process.euid = u unless u.nil?
+    rescue NotImplementedError
     end
   end
 end
