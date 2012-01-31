@@ -106,7 +106,7 @@ module BoxGrinder
       # Final splat var captures any other variables we are not interested in,
       # and avoids them being squashed into the final var.
       eigen_capture(File, [:open, :new], @flag) do |klazz, path, mode, *other|
-        add_path(path) if klazz == File && mode =~ /^(w|a)[+]?/
+        add_path(path) if klazz == File && mode =~ /^(t|b)?((w|a)[+]?)(t|b)?$/
       end
 
       eigen_capture(File, [:rename, :symlink, :link], @flag) do |klazz, old, new, *other|

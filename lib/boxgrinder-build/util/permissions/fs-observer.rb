@@ -53,7 +53,7 @@ module BoxGrinder
     #   * +:add_path+ Command is called, otherwise ignored.  
     def update(update={})
       case update[:command]
-        when :add_paths
+        when :add_path
           unless match_filter?(update[:data])
             @path_set.add(update[:data])
             @filter_set.merge(subdirectory_regex(update[:data]))
@@ -90,10 +90,8 @@ module BoxGrinder
 
       begin
         # JRuby doesn't support saved ids, use this instead.
-        Process.gid = @group
-        Process.egid = @group
-        Process.uid = @user
-        Process.euid = @user
+        Process.gid, Process.egid = @group, @group
+        Process.uid, Process.euid = @user, @user
       rescue NotImplementedError
       end
     end
