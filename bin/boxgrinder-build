@@ -194,7 +194,7 @@ begin
 
   config = BoxGrinder::Config.new(options)
   # Begin monitoring.
-  observer = config.change_to_user ? BoxGrinder::FSObserver.new(uid,gid) : nil
+  observer = config.change_to_user ? BoxGrinder::FSObserver.new(config.uid, config.gid) : nil
   BoxGrinder::FSMonitor.instance.capture(fs_observer)
 
   log = BoxGrinder::LogHelper.new(:level => config.log_level)
