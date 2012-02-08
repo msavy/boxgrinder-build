@@ -171,7 +171,6 @@ def ensure_root
 end
 
 opts = process_options(options)
-fs_observer = BoxGrinder::FSObserver.new(config.uid, config.gid)
 
 begin
   opts.parse!
@@ -194,6 +193,7 @@ begin
 
   config = BoxGrinder::Config.new(options)
   # Begin monitoring.
+  fs_observer = BoxGrinder::FSObserver.new(config.uid, config.gid)
   observer = config.change_to_user ? BoxGrinder::FSObserver.new(config.uid, config.gid) : nil
   BoxGrinder::FSMonitor.instance.capture(fs_observer)
 
