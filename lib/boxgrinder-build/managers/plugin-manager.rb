@@ -38,7 +38,7 @@ module BoxGrinder
     end
 
     def register_plugin(clazz, info)
-      info.merge!(:class => clazz, :require_root => false)
+      info = {:class => clazz, :require_root => false}.merge(info)
 
       validate_plugin_info(info)
 

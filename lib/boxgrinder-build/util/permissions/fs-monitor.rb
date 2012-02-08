@@ -76,10 +76,12 @@ module BoxGrinder
     # applicable action is triggered and capturing is enabled. Fires
     # the +:add_path+ command, and includes the full path as +:data+.
     #
+    # If no observers have been assigned before a path is added, they
+    # will be silently lost.
+    #
     # @param [String] path Filesystem path.
     def add_path(path)
       @lock_b.synchronize do
-        raise "No observers set!" if count_observers.zero?
         changed(true)
         notify_observers(:command => :add_path, :data => realpath(path))
       end
@@ -157,7 +159,7 @@ module BoxGrinder
     end
 
     def add_observers(observers)
-      observers.each{ |o| add_observer(o) }
+      observers.each{ |o| add_observer(o) unless o.nil? }
     end
 
     # Transform relative to absolute path

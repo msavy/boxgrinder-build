@@ -32,7 +32,7 @@ module BoxGrinder
     # @option opts [String] :paths Additional path to to change
     # ownership of
     def initialize(user, group, opts={})
-      @path_set = Set.new(opts[:paths].to_a)
+      @path_set = Set.new(Array(opts[:paths]))
       # Filter some default directories, plus any subdirectories of
       # paths we discover at runtime
       @filter_set = Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux)/)])
@@ -75,25 +75,6 @@ module BoxGrinder
 
     def match_filter?(path)
       @filter_set.inject(false){ |accum, filter| accum || !!(path =~ filter) }
-    end
-
-    public
-
-    # Move to separate class
-    def self.change_user(u, g, &blk)
-      puts "------ Changing user #{u}-#{g}"
-      change_effective(u, g)
-      blk.call
-      puts "------ Changing back to #{Process.gid}-#{Process.uid}"
-      change_effective(Process.gid, Process.uid)
-    end
-
-    private
-
-    def self.change_effective(u, g)
-        Process.egid = g unless g.nil?
-        Process.euid = u unless u.nil?
-    rescue NotImplementedError
     end
   end
 end

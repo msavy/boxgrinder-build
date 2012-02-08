@@ -27,6 +27,7 @@ require 'boxgrinder-build/helpers/plugin-helper'
 require 'boxgrinder-build/managers/plugin-manager'
 require 'boxgrinder-build/util/permissions/fs-monitor'
 require 'boxgrinder-build/util/permissions/fs-observer'
+require 'boxgrinder-build/util/permissions/user-switcher'
 
 module BoxGrinder
   class Appliance
@@ -122,15 +123,12 @@ module BoxGrinder
       @log.info "Building '#{@appliance_config.name}' appliance for #{@appliance_config.hardware.arch} architecture."
 
       @plugin_chain.each do |p|
-        uid, gid =  p[:plugin].plugin_info[:requires_root] ? [@config.uid, @config.gid] : [nil, nil]
-
-        FSObserver.change_user(uid, gid) do
-          execute_plugin(p[:plugin], p[:param])
+        if @config.change_to_user
+          execute_with_userchange(p)
+        else
+          execute_without_userchange(p)
         end
-        # Trigger chown
-        FSMonitor.instance.trigger
       end
-      FSMonitor.instance.stop
     end
 
     # This creates the appliance by executing the plugin chain.
@@ -190,6 +188,23 @@ module BoxGrinder
 
         @log.debug "#{plugin.plugin_info[:type].to_s.capitalize} plugin executed."
       end
+    end
+
+    private
+
+    def execute_with_userchange(p)
+      # Set ids to root if the next plugin requires root permissions
+      uid, gid = p[:plugin].plugin_info[:require_root] ? [0, 0] : [@config.uid, @config.gid]
+
+      UserSwitcher.change_user(uid, gid) do
+        execute_plugin(p[:plugin], p[:param])
+      end
+      # Trigger ownership change before next plugin
+      FSMonitor.instance.trigger      
+    end
+    
+    def execute_without_userchange(p)
+      execute_plugin(p[:plugin], p[:param])
     end
   end
 end
