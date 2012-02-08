@@ -23,7 +23,7 @@ module BoxGrinder
   
     def UserSwitcher.change_user(u, g, &blk)
       prev_u, prev_g = Process.uid, Process.gid
-      libguestf_cache_workaround
+      libguestfs_cache_workaround
       set_user(u, g)
       blk.call
       set_user(prev_u, prev_g)
