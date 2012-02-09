@@ -80,6 +80,7 @@ module BoxGrinder
     # will be silently lost.
     #
     # @param [String] path Filesystem path.
+    # @return [Boolean] False if no observers were present.
     def add_path(path)
       @lock_b.synchronize do
         changed(true)
@@ -87,7 +88,10 @@ module BoxGrinder
       end
     end
 
-    # Trigger chown
+    # Trigger ownership change immediately, but without ceasing. Fires
+    # the +:chown+ command on all observers.
+    # 
+    # @return [boolean] False if no observers were present.
     def trigger
       changed(true)
       notify_observers(:command => :chown)
