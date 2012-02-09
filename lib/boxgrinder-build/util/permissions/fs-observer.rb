@@ -35,7 +35,7 @@ module BoxGrinder
       @path_set = Set.new(Array(opts[:paths]))
       # Filter some default directories, plus any subdirectories of
       # paths we discover at runtime
-      @filter_set = Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux)/)])
+      @filter_set = Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux|tmp)/)])
       @user = user
       @group = group
     end
