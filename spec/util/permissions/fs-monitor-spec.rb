@@ -39,6 +39,7 @@ module BoxGrinder
     context "after singleton #initialize" do
       its(:reset){ should be_nil }
       its(:stop){ should be_false }
+      its(:trigger){ should be_false } 
     
       it "should insert wrappers for File{#open, #new, #rename, #symlink, #link}, 
          Dir#mkdir." do
@@ -57,7 +58,7 @@ module BoxGrinder
       
       before(:each) do
         # Just reflect the path back so we can differentiate the paths
-        subject.stub(:realpath){|reflect| reflect}
+        subject.stub(:realpath){ |reflect| reflect }
       end
 
       it "should add observers to its observer set" do
@@ -168,18 +169,17 @@ module BoxGrinder
     end
 
     context "#add" do      
-      context "invalid usage" do
-        it "should raise an exception when no observers are provided" do
-          expect{ subject.add_path('/exploding/sausage') }.
-            to raise_error(RuntimeError)
-        end
-      end
-
       context "valid usage" do
         before(:each) do
           subject.stub(:realpath).and_return('/custard/creme')
           # Stub the 'real' method, use generated wrapper.
           Dir.stub(:__alias_mkdir).and_return(0)
+        end
+
+        context "no observers provided" do
+          it "should return false, but most not raise any errors" do
+            subject.add_path('/exploding/sausage').should be_false
+          end
         end
 
         # NOTE: Normally #stop would only be received once, but due to
@@ -210,6 +210,23 @@ module BoxGrinder
             Dir.mkdir('custard/creme')
           end
         end
+      end
+    end
+    
+    context "#trigger" do
+      before(:each) do
+        subject.stub(:_stop)
+      end
+
+      it "should return false when there are no observers, but *not* fail" do
+        expect{ subject.trigger }.to be_true
+      end
+
+      it "should send a :chown update to observers" do
+        observer.should_receive(:update).with({:command => :chown})
+
+        subject.send(:add_observer, observer)
+        subject.trigger
       end
     end
   end
