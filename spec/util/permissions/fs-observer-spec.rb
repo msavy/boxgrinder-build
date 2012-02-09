@@ -21,7 +21,7 @@ require 'boxgrinder-build/util/permissions/fs-observer'
 module BoxGrinder
   describe FSObserver do
     let(:empty_set){ Set.new }
-    let(:init_filterset){ Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux)/)]) }
+    let(:init_filterset){ Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux|tmp)/)]) }
  
     before(:each) do
       @fs_observer = FSObserver.new('some-usr', 'some-grp')
@@ -40,7 +40,7 @@ module BoxGrinder
 
       it "should merge extra :path array" do
         fso = FSObserver.new('i', 'c', :paths => ['a/b/c', '/d/e/f'])
-        fso.path_set.should eql(mkset('a/b/c','/d/e/f'))
+        fso.path_set.should eql(mkset('a/b/c', '/d/e/f'))
       end
     end
 
@@ -91,7 +91,7 @@ module BoxGrinder
         end
       end
       
-      context ":command=:stop_capture" do
+      context ":command=:stop_capture and :command=:chown" do
         let(:update_a){ path_update(subject, '/a/path') }  
         let(:update_b){ path_update(subject, '/b/path') }        
 
@@ -111,20 +111,6 @@ module BoxGrinder
 
             FileUtils.should_receive(:chown_R).
               with('some-usr', 'some-grp', '/b/path', :force => true).once
-
-            subject.update({ :command => :stop_capture })
-          end
-          
-          it "it should switch from current user (root) to standard user" do
-            FileUtils.stub(:chown_R)
-            
-            Process::Sys.stub!(:respond_to?).and_return(true)
-            
-            Process::Sys.should_receive(:setresgid).
-              with('some-grp', 'some-grp', 'some-grp')
-
-            Process::Sys.should_receive(:setresuid).
-              with('some-usr', 'some-usr', 'some-usr')
 
             subject.update({ :command => :stop_capture })
           end
