@@ -107,10 +107,10 @@ module BoxGrinder
             subject.stub(:change_user)
 
             FileUtils.should_receive(:chown_R).
-              with('some-usr', 'some-grp', '/a/path').once
+              with('some-usr', 'some-grp', '/a/path', :force => true).once
 
             FileUtils.should_receive(:chown_R).
-              with('some-usr', 'some-grp', '/b/path').once
+              with('some-usr', 'some-grp', '/b/path', :force => true).once
 
             subject.update({ :command => :stop_capture })
           end

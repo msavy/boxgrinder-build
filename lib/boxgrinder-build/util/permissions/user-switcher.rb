@@ -32,7 +32,7 @@ module BoxGrinder
     private
 
     # Working around bugs.... we can rely on the saved id to be able
-    # to sneak back to previous.
+    # to sneak back to the previous user later.
     def UserSwitcher.set_user(u, g)
       # If already set to the given value
       return if Process.uid == u && Process.gid == g
