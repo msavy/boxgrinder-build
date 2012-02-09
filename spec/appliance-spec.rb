@@ -26,8 +26,9 @@ module BoxGrinder
   describe Appliance do
     def prepare_appliance(options = {}, definition_file = "#{File.dirname(__FILE__)}/rspec/src/appliances/jeos-f13.appl")
       @log = LogHelper.new(:level => :trace, :type => :stdout)
-      @config = OpenCascade.new(:platform => :none, :delivery => :none, :force => false,
-                                :uid => 501, :gid => 501, :dir => {:root => '/', :build => 'build'}).merge(options)
+      @config = OpenCascade.new(:platform => :none, :delivery => :none, :force => false, 
+        :change_to_user => false, :uid => 501, :gid => 501, 
+        :dir => {:root => '/', :build => 'build'}).merge(options)
 
       @plugin_manager = mock(PluginManager)
 
@@ -174,6 +175,13 @@ module BoxGrinder
       before(:each) do
         prepare_appliance
         @appliance.instance_variable_set(:@appliance_config, prepare_appliance_config)
+
+        UserSwitcher.stub(:change_user)
+
+        @plugin1, @plugin2, @plugin3 = 3.times.map{|i| mock(i).as_null_object}
+
+        @p_chain = [{:plugin => @plugin1, :param => 'definition'},
+          {:plugin => @plugin2}, {:plugin => @plugin3}]
       end
 
       it "should not fail when plugin chain is empty" do
@@ -182,18 +190,44 @@ module BoxGrinder
       end
 
       it "should execute the whole plugin chain" do
-        plugin1, plugin2, plugin3 = 3.times.map{|i| mock(i).as_null_object}
-
-        p_chain =[{:plugin => plugin1, :param => 'definition'},
-          {:plugin => plugin2}, {:plugin => plugin3}]
-
-        @appliance.instance_variable_set(:@plugin_chain, p_chain)
-
-        @appliance.should_receive(:execute_plugin).ordered.with(plugin1, 'definition')
-        @appliance.should_receive(:execute_plugin).ordered.with(plugin2, nil)
-        @appliance.should_receive(:execute_plugin).ordered.with(plugin3, nil)
-
+        @appliance.instance_variable_set(:@plugin_chain, @p_chain) 
+       
+        @appliance.should_receive(:execute_plugin).with(@plugin1, 'definition')
+        @appliance.should_receive(:execute_plugin).with(@plugin2, nil)
+        @appliance.should_receive(:execute_plugin).with(@plugin3, nil)
+          
         @appliance.execute_plugin_chain
+      end   
+
+      context "when executing without change_user" do
+        before(:each) do
+          @config.stub(:change_to_user).and_return(false) # default
+        end
+      
+        it "should not switch users" do
+          @appliance.instance_variable_set(:@plugin_chain, [])
+          
+          UserSwitcher.should_not_receive(:change_user)
+          @appliance.execute_plugin_chain
+        end
+      end
+
+      context "when executing with change_user" do
+        before(:each) do
+          @config.stub(:change_to_user).and_return(true)
+          @plugin1.stub_chain(:plugin_info, :[]).and_return(true)
+          @plugin2.stub_chain(:plugin_info, :[]).and_return(false)
+          @plugin3.stub_chain(:plugin_info, :[]).and_return(false)
+
+          @appliance.instance_variable_set(:@plugin_chain, @p_chain)
+        end
+
+        it "should switch users if the plugin requires root, but not for those that do not" do
+          UserSwitcher.should_receive(:change_user).with(0, 0)
+          UserSwitcher.should_receive(:change_user).twice.with(501, 501)
+          
+          @appliance.execute_plugin_chain
+        end
       end
     end
 
