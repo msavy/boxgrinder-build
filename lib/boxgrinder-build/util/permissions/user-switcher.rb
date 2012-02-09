@@ -24,7 +24,7 @@ module BoxGrinder
     def UserSwitcher.change_user(u, g, &blk)
       prev_u, prev_g = Process.uid, Process.gid
       libguestfs_cache_workaround
-      set_user(u, g)
+      set_user(u, g) 
       blk.call
       set_user(prev_u, prev_g)
     end
@@ -34,10 +34,10 @@ module BoxGrinder
     # Working around bugs.... we can rely on the saved id to be able
     # to sneak back to the previous user later.
     def UserSwitcher.set_user(u, g)
-      # If already set to the given value
       return if Process.uid == u && Process.gid == g
-      Process.egid, Process.gid = g
-      Process.euid, Process.uid = u
+      # If already set to the given value
+      Process.egid, Process.gid = g, g
+      Process.euid, Process.uid = u, u
     end
 
     # Workaround
