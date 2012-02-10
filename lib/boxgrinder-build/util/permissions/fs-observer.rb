@@ -35,7 +35,7 @@ module BoxGrinder
       @path_set = Set.new(Array(opts[:paths]))
       # Filter some default directories, plus any subdirectories of
       # paths we discover at runtime
-      @filter_set = Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux|tmp)/)])
+      @filter_set = Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux|tmp)(/|$))])
       @user = user
       @group = group
     end
@@ -65,10 +65,6 @@ module BoxGrinder
 
     private
 
-    def subdirectory_regex(paths)
-      Array(paths).collect{ |p| Regexp.new("^#{p}/") }
-    end
-
     def do_chown
       @path_set.each do |p| 
         FileUtils.chown_R(@user, @group, p, :force => true) if File.exist?(p)
@@ -77,6 +73,10 @@ module BoxGrinder
 
     def match_filter?(path)
       @filter_set.inject(false){ |accum, filter| accum || !!(path =~ filter) }
+    end
+
+    def subdirectory_regex(paths)
+      Array(paths).collect{ |p| Regexp.new("^#{p}/") }
     end
   end
 end

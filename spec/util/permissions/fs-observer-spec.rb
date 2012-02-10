@@ -21,7 +21,7 @@ require 'boxgrinder-build/util/permissions/fs-observer'
 module BoxGrinder
   describe FSObserver do
     let(:empty_set){ Set.new }
-    let(:init_filterset){ Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux|tmp)/)]) }
+    let(:init_filterset){ Set.new([%r(^/(etc|dev|sys|bin|sbin|etc|lib|lib64|boot|run|proc|selinux|tmp)(/|$))]) }
  
     before(:each) do
       @fs_observer = FSObserver.new('some-usr', 'some-grp')
