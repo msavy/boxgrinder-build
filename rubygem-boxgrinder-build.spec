@@ -148,6 +148,10 @@ popd
 - [BGBUILD-332] Add support for bash completion
 - [BGBUILD-338] Weed out non-deterministic tests
 - [BGBUILD-337] In SL if default repos are disabled, /etc/yum.repos.d folder is not created.
+- [BGBUILD-331] Add support for sa-east-1 EC2 region (corrected)
+- [BGBUILD-346] Confirm Ruby 1.9.3 support
+- [BGBUILD-348] Simplecov coverage testing for Ruby >=1.9
+- [BGBUILD-344] Builds on some platforms impossible due to log ownership issues
 
 * Tue Nov 29 2011 Marek Goldmann <mgoldman@redhat.com> - 0.10.0-1
 - Upstream release: 0.10.0
