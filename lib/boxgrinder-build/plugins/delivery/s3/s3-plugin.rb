@@ -44,16 +44,8 @@ module BoxGrinder
       set_default_config_value('path', '/')
       set_default_config_value('region', 'us-east-1')
 
-      set_default_config_value('block_device_mappings', {}) do |key, map, value|
-        split_mappings = value.split(':') # /dev/xvdb=ephemeral0:/dev/xvdc=ephemeral1 
-
-        split_mappings.each do |s_pair|
-          device, type = s_pair.split('=') # /dev/xvdb=ephemeral0
-          if device.nil? || type.nil? 
-            raise PluginValidationError, "Invalid device mapping: '#{s_pair}' in '#{split_mappings.join(', ')}'"
-          end
-          map[device => type] # '/dev/xvdb' => 'ephemeral0'
-        end
+      set_default_config_value('block_device_mappings', {}) |k, m, v|
+        EC2Helper::block_device_mappings_validator(k, m, v)
       end
       
       validate_plugin_config(['bucket', 'access_key', 'secret_access_key'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#S3_Delivery_Plugin')
@@ -210,7 +202,7 @@ module BoxGrinder
           optmap.merge!(:block_device_mappings => @plugin_config['block_device_mappings']) 
         end
 
-        @log.debug("Options map: #{optmap.pretty_inspect}")
+        @log.debug("Options map: #{optmap.inspect}")
 
         ami = @ec2.images.create(optmap)
         @ec2helper.wait_for_image_state(:available, ami)

@@ -43,39 +43,20 @@ module BoxGrinder
         end
       end
     end
+    
+    def self.block_device_mappings_validator(key, map, value)
+      split_mappings = value.split(':') # /dev/xvdb=ephemeral0:/dev/xvdc=ephemeral1 
 
-    def select_aki(region, pattern)
-      candidates = region.images.with_owner('amazon').
-          filter('manifest-location','*pv-grub*').
-          sort().
-          reverse
-
-      candidates.each do |image|
-        return image.id if image.location =~ pattern
-      end
-    end
-
-    #Currently there is no API call for discovering S3 endpoint addresses
-    #but the base is presently the same as the EC2 endpoints, so this somewhat better
-    #than manually maintaining the data.
-    #S3 = /hd0-.*i386/, EBS = /hd00-.*i386/
-    def endpoints(service_name, aki_pattern)
-      endpoints = {}
-      AWS.memoize do
-        @ec2.regions.each do |region|
-          endpoints.merge!({
-              region.name => {
-                :endpoint => "#{service_name}.#{region.name}.amazonaws.com",
-                :location => region.name, #or alias?
-                :kernel => {
-                  :i386 => select_aki(region, aki_pattern),
-                  :x86_64 => select_aki(region, aki_pattern)
-                }
-              }
-          })
+      split_mappings.each do |s_pair|
+        device, type = s_pair.split('=') # /dev/xvdb=ephemeral0
+        if device.nil? || type.nil? 
+          raise PluginValidationError, 
+          "Invalid device mapping: '#{s_pair}' in '#{split_mappings.join(', ')}'"
         end
+        map[device => type] # '/dev/xvdb' => 'ephemeral0'
       end
+      map
     end
-
+    
   end
 end

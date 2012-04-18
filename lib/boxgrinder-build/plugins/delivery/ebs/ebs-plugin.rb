@@ -57,16 +57,8 @@ module BoxGrinder
         value.to_s.gsub!(/-/, '')
       end
 
-      set_default_config_value('block_device_mappings', {}) do |key, map, value|
-        split_mappings = value.split(':') # /dev/xvdb=ephemeral0:/dev/xvdc=ephemeral1 
-
-        split_mappings.each do |s_pair|
-          device, type = s_pair.split('=') # /dev/xvdb=ephemeral0
-          if device.nil? || type.nil? 
-            raise PluginValidationError, "Invalid device mapping: '#{s_pair}' in '#{split_mappings.join(', ')}'"
-          end
-          map[device => type] # '/dev/xvdb' => 'ephemeral0'
-        end
+      set_default_config_value('block_device_mappings', {}) |k, m, v|
+        EC2Helper::block_device_mappings_validator(k, m, v)
       end
 
       validate_plugin_config(['access_key', 'secret_access_key', 'account_number'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin')
@@ -186,7 +178,7 @@ module BoxGrinder
         optmap[:block_device_mappings].merge!(@plugin_config['block_device_mappings']) 
       end
 
-      @log.debug("Options map: #{optmap.pretty_inspect}")
+      @log.debug("Options map: #{optmap.inspect}")
       image = @ec2.images.create(optmap)
 
       @log.info "Waiting for the new EBS AMI to become available"
