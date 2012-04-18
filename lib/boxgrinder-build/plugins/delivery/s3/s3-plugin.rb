@@ -43,6 +43,19 @@ module BoxGrinder
       set_default_config_value('ramdisk', false)
       set_default_config_value('path', '/')
       set_default_config_value('region', 'us-east-1')
+
+      set_default_config_value('block_device_mappings', {}) do |key, map, value|
+        split_mappings = value.split(':') # /dev/xvdb=ephemeral0:/dev/xvdc=ephemeral1 
+
+        split_mappings.each do |s_pair|
+          device, type = s_pair.split('=') # /dev/xvdb=ephemeral0
+          if device.nil? || type.nil? 
+            raise PluginValidationError, "Invalid device mapping: '#{s_pair}' in '#{split_mappings.join(', ')}'"
+          end
+          map[device => type] # '/dev/xvdb' => 'ephemeral0'
+        end
+      end
+      
       validate_plugin_config(['bucket', 'access_key', 'secret_access_key'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#S3_Delivery_Plugin')
 
       subtype(:ami) do
@@ -191,7 +204,15 @@ module BoxGrinder
       if ami = ami_by_manifest_key(ami_manifest_key)
         @log.info "Image for #{@appliance_config.name} is already registered under id: #{ami.id} (region: #{@plugin_config['region']})."
       else
-        ami = @ec2.images.create(:image_location =>  "#{@plugin_config['bucket']}/#{ami_manifest_key.key}")
+        optmap = { :image_location =>  "#{@plugin_config['bucket']}/#{ami_manifest_key.key}" }
+        
+        unless @plugin_config['block_device_mappings'].empty?
+          optmap.merge!(:block_device_mappings => @plugin_config['block_device_mappings']) 
+        end
+
+        @log.debug("Options map: #{optmap.pretty_inspect}")
+
+        ami = @ec2.images.create(optmap)
         @ec2helper.wait_for_image_state(:available, ami)
         @log.info "Image for #{@appliance_config.name} successfully registered under id: #{ami.id} (region: #{@plugin_config['region']})."
       end
