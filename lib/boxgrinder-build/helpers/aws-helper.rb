@@ -53,7 +53,7 @@ module BoxGrinder
           raise PluginValidationError, 
           "Invalid device mapping: '#{s_pair}' in '#{split_mappings.join(', ')}'"
         end
-        map[device => type] # '/dev/xvdb' => 'ephemeral0'
+        map.merge!(device => type) # '/dev/xvdb' => 'ephemeral0'
       end
       map
     end
