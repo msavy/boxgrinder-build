@@ -1,14 +1,14 @@
-module BoxGrinder
+ module BoxGrinder
   module EBS
     module Messages
-      def block_device_mapping_message
+      def self.ephemeral_message
 <<-DOC 
 #{%(Since version 0.10.2 BoxGrinder no longer *attaches* or *mounts* any ephemeral 
 disks by default for EBS AMIs.).bold}
 
 It is still possible to specify attachment points at build-time if 
 you desire by using: 
-  #{%(--delivery-config block_device_mappings:"/dev/sdb=ephemeral0:/dev/sdc=ephemeral").bold}
+ #{%(--delivery-config block_device_mappings:"/dev/sdb=ephemeral0:/dev/sdc=ephemeral1").bold}
 
 You can also specify your block device mappings at launch-time.
  

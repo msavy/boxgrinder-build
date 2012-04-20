@@ -19,13 +19,13 @@
 require 'boxgrinder-build/plugins/base-plugin'
 require 'boxgrinder-build/plugins/delivery/ebs/messages'
 require 'boxgrinder-build/helpers/ec2-helper'
+require 'boxgrinder-build/helpers/banner-helper'
 require 'aws-sdk'
 require 'open-uri'
 require 'timeout'
 
 module BoxGrinder
   class EBSPlugin < BasePlugin
-    extend EBS::Messages
 
     ROOT_DEVICE_NAME = '/dev/sda1'
     POLL_FREQ = 1 #second
@@ -83,7 +83,7 @@ module BoxGrinder
     end
 
     def execute
-      @log.info block_device_mapping_message
+      @log.info Banner.message(EBS::Messages::ephemeral_message)
 
       ebs_appliance_description = "#{@appliance_config.summary} | Appliance version #{@appliance_config.version}.#{@appliance_config.release} | #{@appliance_config.hardware.arch} architecture"
 
