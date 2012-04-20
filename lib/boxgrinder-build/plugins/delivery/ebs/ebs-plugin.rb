@@ -16,16 +16,16 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'rubygems'
 require 'boxgrinder-build/plugins/base-plugin'
+require 'boxgrinder-build/plugins/delivery/ebs/messages'
 require 'boxgrinder-build/helpers/ec2-helper'
 require 'aws-sdk'
 require 'open-uri'
 require 'timeout'
-require 'pp'
 
 module BoxGrinder
   class EBSPlugin < BasePlugin
+    extend EBS::Messages
 
     ROOT_DEVICE_NAME = '/dev/sda1'
     POLL_FREQ = 1 #second
@@ -45,7 +45,6 @@ module BoxGrinder
 
       set_default_config_value('kernel', false)
       set_default_config_value('ramdisk', false)
-
       set_default_config_value('availability_zone', @current_availability_zone)
       set_default_config_value('delete_on_termination', true)
       set_default_config_value('overwrite', false)
@@ -64,6 +63,7 @@ module BoxGrinder
       validate_plugin_config(['access_key', 'secret_access_key', 'account_number'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin')
 
       raise PluginValidationError, "You can only convert to EBS type AMI appliances converted to EC2 format. Use '-p ec2' switch. For more info about EC2 plugin see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EC2_Platform_Plugin." unless @previous_plugin_info[:name] == :ec2
+
       raise PluginValidationError, "You selected #{@plugin_config['availability_zone']} availability zone, but your instance is running in #{@current_availability_zone} zone. Please change availability zone in plugin configuration file to #{@current_availability_zone} (see http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin) or use another instance in #{@plugin_config['availability_zone']} zone to create your EBS AMI." if @plugin_config['availability_zone'] != @current_availability_zone
 
       AWS.config(:access_key_id => @plugin_config['access_key'],
@@ -83,6 +83,8 @@ module BoxGrinder
     end
 
     def execute
+      @log.info block_device_mapping_message
+
       ebs_appliance_description = "#{@appliance_config.summary} | Appliance version #{@appliance_config.version}.#{@appliance_config.release} | #{@appliance_config.hardware.arch} architecture"
 
       @log.debug "Checking if appliance is already registered..."
@@ -275,7 +277,6 @@ module BoxGrinder
       end
       false
     end
-
   end
 end
 
