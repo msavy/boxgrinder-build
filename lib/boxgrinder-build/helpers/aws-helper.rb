@@ -44,7 +44,8 @@ module BoxGrinder
       end
     end
     
-    def self.block_device_mappings_validator(key, map, value)
+    def self.block_device_mappings_validator(key, value)
+      map            = {}
       split_mappings = value.split('&') # /dev/xvdb=ephemeral0&/dev/xvdc=ephemeral1 
 
       split_mappings.each do |s_pair|

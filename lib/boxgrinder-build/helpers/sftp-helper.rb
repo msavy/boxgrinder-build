@@ -1,7 +1,3 @@
-require 'boxgrinder-core/helpers/log-helper'
-require 'net/ssh'
-require 'net/sftp'
-
 module BoxGrinder
   class SFTPHelper
     def initialize(options={})
@@ -102,23 +98,5 @@ module BoxGrinder
         end
       end
     end
-
-    ## Extend the default baked paths in net-ssh/net-sftp to include SUDO_USER
-    ## and/or LOGNAME key directories too.
-    #def generate_keypaths
-    #  keys = %w(id_rsa id_dsa)
-    #  dirs = %w(.ssh .ssh2)
-    #  paths = %w(~/.ssh/id_rsa ~/.ssh/id_dsa ~/.ssh2/id_rsa ~/.ssh2/id_dsa)
-    #  ['SUDO_USER','LOGNAME'].inject(paths) do |accum, var|
-    #    if user = ENV[var]
-    #      accum << dirs.collect do |d|
-    #        keys.collect { |k| File.expand_path("~#{user}/#{d}/#{k}") if File.exist?("~#{user}/#{d}/#{k}") }
-    #      end.flatten!
-    #    end
-    #    accum
-    #  end.flatten!
-    #  paths
-    #end
-
   end
 end

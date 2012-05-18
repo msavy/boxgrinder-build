@@ -45,8 +45,8 @@ module BoxGrinder
       set_default_config_value('path', '/')
       set_default_config_value('region', 'us-east-1')
 
-      set_default_config_value('block_device_mappings', {}) do |k, m, v|
-        EC2Helper::block_device_mappings_validator(k, m, v)
+      set_default_config_value('block_device_mappings', '') do |k, v|
+        EC2Helper::block_device_mappings_validator(k, v)
       end
       
       validate_plugin_config(['bucket', 'access_key', 'secret_access_key'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#S3_Delivery_Plugin')

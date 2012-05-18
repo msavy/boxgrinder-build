@@ -52,12 +52,12 @@ module BoxGrinder
       set_default_config_value('preserve_snapshots', false)
       set_default_config_value('terminate_instances', false)
 
-      set_default_config_value('account_number') do |_, _, value|
-        value.to_s.gsub!(/-/, '')
+      set_default_config_value('account_number') do |_, v|
+        v.to_s.gsub!(/-/, '')
       end
 
-      set_default_config_value('block_device_mappings', {}) do |k, m, v|
-        EC2Helper::block_device_mappings_validator(k, m, v)
+      set_default_config_value('block_device_mappings', '') do |k, v|
+        EC2Helper::block_device_mappings_validator(k, v)
       end
 
       validate_plugin_config(['access_key', 'secret_access_key', 'account_number'], 'http://boxgrinder.org/tutorials/boxgrinder-build-plugins/#EBS_Delivery_Plugin')

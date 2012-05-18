@@ -201,12 +201,19 @@ module BoxGrinder
       @target_deliverables
     end
 
-    def set_default_config_value(key, default_value=nil, &blk)
-      if block_given? && !(@plugin_config[key].nil?)
-        @plugin_config[key] = yield(key, default_value, @plugin_config[key])
+    # Keys can be an array of aliases, or single value.
+    # If multiple aliases are set, the first one takes precedence.
+    # All aliases will refer to the same value.
+    def set_default_config_value(keys, default_value = nil, &blk)
+      keys = Array(keys)
+      value = keys.map{ |k| @plugin_config[k] }.reject{ |k| k.nil? }.first
+
+      if block_given?
+        value = yield keys, value || default_value
       else
-        @plugin_config[key] ||= default_value
+        value ||= default_value
       end
+      keys.reduce(value){ |v, k| @plugin_config[k] = v }
     end
 
     # This reads the plugin config from file
