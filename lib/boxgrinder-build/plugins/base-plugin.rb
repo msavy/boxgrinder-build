@@ -238,11 +238,33 @@ module BoxGrinder
     PATTERN_JSON   = /^{.*}$/
     QUOTE_JSON     = Oniguruma::ORegexp.new(%|(['"])?(?<quoted>[^,{}\\s:]+)(['"])?|) #"
 
-    MEMBERS_BOOL   = [TrueClass, FalseClass, :boolean, :bool, :flag]
-    MEMBERS_INT    = [Integer, :integer, :int]
-    MEMBERS_FLOAT  = [Float, :float, :decimal]
-    MEMBERS_STRING = [String, :string, :text]
-    MEMBERS_HASH   = [Hash, :hash, :json]
+    MEMBERS_BOOL   = { 
+      :aliases => [TrueClass, FalseClass, :boolean, :bool, :flag],
+      :matchers => [PATTERN_TRUE, PATTERN_FALSE]
+      :cast => lambda { |v, matcher| PATTERN_TRUE == matcher ? true : false }
+    }
+    
+    MEMBERS_INT    = { 
+      :aliases => [Integer, :integer, :int] 
+      :matchers => [PATTERN_INT]
+      :cast => lambda { |v, _| v.to_i }
+    }
+
+    MEMBERS_FLOAT  = { 
+      :aliases => [Float, :float, :decimal],
+      :matchers => [PATTERN_FLOAT],
+      :cast => lambda { |v, _| v.to_f }
+    }
+
+    MEMBERS_STRING = { [String, :string, :text] => }
+
+    MEMBERS_HASH   = { [Hash, :hash, :json] => }
+
+    DISPATCH_TABLE = build_dispatch_table
+
+    def build_dispatch_table
+      
+    end
 
     class InvalidTypeError < StandardError; 
       attr_reader :value, :regexp
@@ -252,7 +274,10 @@ module BoxGrinder
     end
 
     def type_validator(value, opts)
-      case(opts[:validator] ||= type_guesstimator(value, opts))
+ 
+      DISPATCH_TABLE[opts[:validator]]
+
+     case(opts[:validator] ||= type_guesstimator(value, opts))
       when *MEMBERS_BOOL
 #        if PATTERN_TRUE =~  
       when *MEMBERS_INT
