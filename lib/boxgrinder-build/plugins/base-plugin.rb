@@ -22,6 +22,7 @@ require 'boxgrinder-core/errors'
 require 'boxgrinder-build/helpers/image-helper'
 require 'boxgrinder-build/managers/plugin-manager'
 require 'ostruct'
+require 'json'
 require 'hashery/opencascade'
 require 'fileutils'
 require 'logger'
@@ -204,17 +205,112 @@ module BoxGrinder
     # Keys can be an array of aliases, or single value.
     # If multiple aliases are set, the first one takes precedence.
     # All aliases will refer to the same value.
-    def set_default_config_value(keys, default_value = nil, &blk)
-      keys = Array(keys)
-      value = keys.map{ |k| @plugin_config[k] }.reject{ |k| k.nil? }.first
+    def set_default_config_value(keys, opts = {}, &blk)
+      opts = { 
+        :default => nil,
+        :type => nil, # nil for auto
+        :required => false,       
+      }
+      
+      opts.update(opts)
+
+      keys  = Array(keys)
+      value = keys.map { |k| @plugin_config[k] }.reject { |k| k.nil? }.first
+      
+      type_validator(value, opts)
+      required_validator(value, opts)
+      options_validator(value, opts)
 
       if block_given?
-        value = yield keys, value || default_value
+        value = yield keys, value || opts[:default]
       else
-        value ||= default_value
+        value ||= opts[:default]
       end
-      keys.reduce(value){ |v, k| @plugin_config[k] = v }
+      keys.reduce(value) { |v, k| @plugin_config[k] = v }
     end
+
+
+    ### move?
+    PATTERN_TRUE   = /^(y|Y|yes|Yes|YES|true|True|TRUE|on|On|ON)$/ 
+    PATTERN_FALSE  = /^(n|N|no|No|NO|false|False|FALSE|off|Off|OFF)$/
+    PATTERN_INT    = /^[-+]?\d+$/
+    PATTERN_FLOAT  = /^-?((\d+(\.\d+)?)|(\.\d+))([eE][-+]?[\d]+)?$/
+    PATTERN_JSON   = /^{.*}$/
+    QUOTE_JSON     = Oniguruma::ORegexp.new(%|(['"])?(?<quoted>[^,{}\\s:]+)(['"])?|) #"
+
+    MEMBERS_BOOL   = [TrueClass, FalseClass, :boolean, :bool, :flag]
+    MEMBERS_INT    = [Integer, :integer, :int]
+    MEMBERS_FLOAT  = [Float, :float, :decimal]
+    MEMBERS_STRING = [String, :string, :text]
+    MEMBERS_HASH   = [Hash, :hash, :json]
+
+    class InvalidTypeError < StandardError; 
+      attr_reader :value, :regexp
+      def initialize(value, regexp, message = nil)
+        super(message)
+      end
+    end
+
+    def type_validator(value, opts)
+      case(opts[:validator] ||= type_guesstimator(value, opts))
+      when *MEMBERS_BOOL
+#        if PATTERN_TRUE =~  
+      when *MEMBERS_INT
+        cast_value(value, PATTERN_INT) { |v| v.to_i }
+      when *MEMBERS_FLOAT
+        cast_value(value, PATTERN_INT) { |v| v.to_f }
+      when *MEMBERS_STRING
+        cast_value(value, PATTERN_INT) { |v| v.to_s }
+      when *MEMBERS_HASH
+        cast_value(value, PATTERN_JSON) do |v|
+          quoted_json = QUOTE_JSON.gsub(v, '"\k<quoted>"')
+          JSON.parse(quoted_json)
+        end
+      else
+        raise ArgumentError, "Unrecognised type #{type} specified for #{value}"
+      end
+    end
+
+    def cast_value(value, patterns, &blk)
+      valid_match = Array(patterns).reduce(false) do |accum, p|
+        accum = (accum || p =~ value)
+      end
+      
+      if valid_match
+        yield value, 
+      else
+        raise InvalidTypeError.new(value, type)
+      end
+    end
+
+    def advanced_validator()
+    end
+    
+    def required_validator(value, opts)
+      if value.nil? && opts[:required] && !opts[:default]
+        raise PluginValidationError, "#{keys.first} must be defined for the " +
+          "#{@plugin_info[:name]} plugin."
+      end
+    end
+
+    def type_guesstimator(value, opts)
+      case value
+      when PATTERN_JSON
+        Hash
+      when PATTERN_TRUE
+        TrueClass
+      when PATTERN_FALSE
+        FalseClass
+      when PATTERN_INT
+        Integer
+      when PATTERN_FLOAT 
+        Float
+      else
+        String
+      end
+    end
+
+    ### move-end?
 
     # This reads the plugin config from file
     def read_plugin_config

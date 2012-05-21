@@ -18,213 +18,30 @@
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
 require 'rubygems'
-require 'optparse'
-require 'pathname'
-require 'rbconfig'
-require 'escape'
-require 'hashery/opencascade'
-require 'boxgrinder-core/models/config'
-require 'boxgrinder-core/helpers/log-helper'
-require 'boxgrinder-build'
-require 'boxgrinder-build/appliance'
 
-require 'boxgrinder-build/util/permissions/fs-observer'
-require 'boxgrinder-build/util/permissions/fs-monitor'
+module BoxGrinder
+  require 'boxgrinder-build/cli'
 
-options = OpenCascade.new(
-    :platform => :none,
-    :delivery => :none,
-    :os_config => {},
-    :platform_config => {},
-    :delivery_config => {},
-    :additional_plugins => [],
-    :change_to_user => false
-)
+  ARGV_CLONE = ARGV.clone
 
-ARGV_DUP = ARGV.clone
-
-def validate_hash_option(options, name, value)
-  value.each do |entry|
-    if entry =~ /^(\S+?):(\S+)$/
-
-      k = $1.strip
-      v = $2.strip
-
-      if v =~ /^([-+]?(0|[1-9][0-9_]*))$/
-        v = v.to_i
-      elsif v =~ /^(y|Y|yes|Yes|YES|true|True|TRUE|on|On|ON)$/
-        v = true
-      elsif v =~ /^(n|N|no|No|NO|false|False|FALSE|off|Off|OFF)$/
-        v = false
-      elsif v =~ /^([-+]?([0-9][0-9_]*)?\.[0-9.]*([eE][-+][0-9]+)?)$/
-        v = v.to_f
-      end
-
-      options[name][k] = v
-    else
-      yield entry if block_given?
-      abort
+  def self.ensure_root
+    unless Process.uid == 0
+      puts 'BoxGrinder requires root permissions, but will switch to your ' +
+        'local user when possible. Files will be owned by your user.'
+      
+      # http://blade.nagaokaut.ac.jp/cgi-bin/scat.rb/ruby/ruby-talk/151376
+      ruby   = File.join(RbConfig::CONFIG['bindir'],
+                         RbConfig::CONFIG['RUBY_INSTALL_NAME'] +
+                         RbConfig::CONFIG['EXEEXT'])
+      path   = '-I' << $:.join(':')
+      script = Pathname.new(__FILE__).realpath.to_s
+      args   = ARGV_CLONE
+      chusr  = '--change-to-user'
+      cmd    = ['sudo', '-E', ruby, path, script] + args + [chusr]
+      
+      exec(Escape::shell_command(cmd))
     end
   end
-end
 
-def process_options(options)
-  OptionParser.new do |opts|
-    program = File.basename($0)
-
-    opts.banner = <<EOB
-Usage: #{program} [appliance definition file] [options]
-
-A tool for building VM images from simple definition files.
-        
-Homepage:
-    http://boxgrinder.org/
-
-Documentation:
-    http://boxgrinder.org/tutorials/
-
-Examples:
-    $ #{program} jeos.appl                                                           # Build KVM image for jeos.appl
-    $ #{program} jeos.appl -f                                                        # Build KVM image for jeos.appl with removing previous build for this image
-    $ #{program} jeos.appl --os-config format:qcow2                                  # Build KVM image for jeos.appl with a qcow2 disk
-    $ #{program} jeos.appl -p vmware --platform-config type:personal,thin_disk:true  # Build VMware image for VMware Server, Player, Fusion using thin (growing) disk
-    $ #{program} jeos.appl -p ec2 -d ami                                             # Build and register AMI for jeos.appl
-    $ #{program} jeos.appl -p vmware -d local                                        # Build VMware image for jeos.appl and deliver it to local directory
-EOB
-
-
-    opts.separator ""
-    opts.separator "Options:"
-
-    opts.on("-p", "--platform [TYPE]", "The name of platform you want to convert to.") { |v| options.platform = v.to_sym }
-    opts.on("-d", "--delivery [METHOD]", "The delivery method for selected appliance.") { |v| options.delivery = v.to_sym }
-    opts.on("-f", "--force", "Force image creation - removes all previous builds for selected appliance. Default: false.") { |v| options.force = v }
-
-    opts.separator ""
-    opts.separator "Plugin configuration options:"
-
-    opts.on("-l", "--plugins [PLUGINS]", Array, "Comma separated list of additional plugins. Default: empty.") do |v|
-      options[:additional_plugins] = v
-    end
-
-    opts.separator ""
-
-    opts.on("--os-config [CONFIG]", Array, "Operating system plugin configuration in format: key1:value1,key2:value2.") do |v|
-      validate_hash_option(options, :os_config, v) do |entry|
-        puts "Operating system plugin configuration is not valid at '#{entry}'. Valid format is: 'key:value'."
-      end
-    end
-
-    opts.on("--platform-config [CONFIG]", Array, "Platform plugin configuration in format: key1:value1,key2:value2.") do |v|
-      validate_hash_option(options, :platform_config, v) do |entry|
-        puts "Platform plugin configuration is not valid at '#{entry}'. Valid format is: 'key:value'."
-      end
-    end
-
-    opts.on("--delivery-config [CONFIG]", Array, "Delivery plugin configuration in format: key1:value1,key2:value2.") do |v|
-      validate_hash_option(options, :delivery_config, v) do |entry|
-        puts "Delivery plugin configuration is not valid at '#{entry}'. Valid format is: 'key:value'."
-      end
-    end
-
-    opts.separator ""
-    opts.separator "Logging options:"
-
-    opts.on("--debug", "Prints debug information while building. Default: false.") { options[:log_level] = :debug }
-    opts.on("--trace", "Prints trace information while building. Default: false.") { options[:log_level] = :trace }
-    opts.on("-b", "--backtrace", "Prints full backtrace if errors occur whilst building. Default: true if console log is set to debug or trace, otherwise false.") { |v| options[:backtrace] = v }
-
-    opts.separator ""
-    opts.separator 'Common options:'
-
-    opts.on_tail('--help', 'Show this message.') do
-      puts opts
-      exit
-    end
-
-    opts.on_tail('--version', 'Print the version.') do
-      puts "BoxGrinder Build #{File.read("#{File.dirname(__FILE__)}/../CHANGELOG").match(/^v(.*)/)[1]}"
-
-      [:os, :platform, :delivery].each do |type|
-        puts
-        puts "Available #{type} plugins:"
-        BoxGrinder::PluginManager.instance.plugins[type].each do |name, plugin_info|
-          puts " - #{name} plugin for #{plugin_info[:full_name]}"
-        end
-      end
-
-      exit
-    end
-
-    opts.on('--change-to-user', 'Change from root to local user after the OS plugin completes.') do
-      options[:change_to_user] = true
-    end
-  end
-end
-
-def ensure_root
-  unless Process.uid == 0
-    puts 'BoxGrinder requires root permissions, but will switch to your ' <<
-      'local user when possible. Files will be owned by your user.'
-
-    # http://blade.nagaokaut.ac.jp/cgi-bin/scat.rb/ruby/ruby-talk/151376
-    ruby   = File.join(RbConfig::CONFIG['bindir'],
-                       RbConfig::CONFIG['RUBY_INSTALL_NAME'] +
-                       RbConfig::CONFIG['EXEEXT'])
-    path   = '-I' << $:.join(':')
-    script = Pathname.new(__FILE__).realpath.to_s
-    args   = ARGV_DUP
-    chusr  = '--change-to-user'
-    cmd    = ['sudo', '-E', ruby, path, script] + args + [chusr]
-
-    exec(Escape::shell_command(cmd))
-  end
-end
-
-opts = process_options(options)
-
-begin
-  opts.parse!
-
-  ensure_root
-
-  if ARGV.empty? or ARGV.size > 1
-    puts opts
-    puts
-    puts 'No or more than one appliance definition file specified.'
-    abort
-  end
-
-  appliance_definition_file = ARGV.first
-
-  unless File.exists?(appliance_definition_file)
-    puts "Appliance definition file '#{appliance_definition_file}' could not be found."
-    abort
-  end
-
-  config = BoxGrinder::Config.new(options)
-  # Begin monitoring.
-  observer = config.change_to_user ? BoxGrinder::FSObserver.new(config.uid, config.gid) : nil
-  BoxGrinder::FSMonitor.instance.capture(observer)
-
-  log = BoxGrinder::LogHelper.new(:level => config.log_level)
-
-  begin
-    BoxGrinder::Appliance.new(appliance_definition_file, config, :log => log).create
-  rescue Exception => e
-    msg = "#{e.class}: #{e.message}#$/#{e.backtrace.join($/)}"
-    if options.backtrace
-      log.fatal msg
-    else # demote backtrace to debug so that it is in file log only
-      log.fatal "#{e.class}: #{e.message}. See the log file for detailed information."
-      log.debug msg
-    end
-  end
-rescue => e
-  puts opts
-  puts
-  puts e.message
-  abort
-ensure
-  BoxGrinder::FSMonitor.instance.stop
+  CLI.start
 end
