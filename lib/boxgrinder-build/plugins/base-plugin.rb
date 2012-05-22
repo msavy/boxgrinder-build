@@ -236,35 +236,18 @@ module BoxGrinder
     PATTERN_INT    = /^[-+]?\d+$/
     PATTERN_FLOAT  = /^-?((\d+(\.\d+)?)|(\.\d+))([eE][-+]?[\d]+)?$/
     PATTERN_JSON   = /^{.*}$/
+    PATTERN_STRING = /^.*$/
     QUOTE_JSON     = Oniguruma::ORegexp.new(%|(['"])?(?<quoted>[^,{}\\s:]+)(['"])?|) #"
 
-    MEMBERS_BOOL   = { 
-      :aliases => [TrueClass, FalseClass, :boolean, :bool, :flag],
-      :matchers => [PATTERN_TRUE, PATTERN_FALSE]
-      :cast => lambda { |v, matcher| PATTERN_TRUE == matcher ? true : false }
-    }
-    
-    MEMBERS_INT    = { 
-      :aliases => [Integer, :integer, :int] 
-      :matchers => [PATTERN_INT]
-      :cast => lambda { |v, _| v.to_i }
-    }
-
-    MEMBERS_FLOAT  = { 
-      :aliases => [Float, :float, :decimal],
-      :matchers => [PATTERN_FLOAT],
-      :cast => lambda { |v, _| v.to_f }
-    }
-
-    MEMBERS_STRING = { [String, :string, :text] => }
-
-    MEMBERS_HASH   = { [Hash, :hash, :json] => }
+    MEMBERS_BOOL   = [TrueClass, FalseClass, :boolean, :bool, :flag]
+    MEMBERS_INT    = [Integer, :integer, :int] 
+    MEMBERS_FLOAT  = [Float, :float, :decimal]
+    MEMBERS_STRING = [String, :string, :text]
+    MEMBERS_HASH   = [Hash, :hash, :json]
 
     DISPATCH_TABLE = build_dispatch_table
 
-    def build_dispatch_table
-      
-    end
+    build_dispatch_table
 
     class InvalidTypeError < StandardError; 
       attr_reader :value, :regexp
@@ -275,19 +258,19 @@ module BoxGrinder
 
     def type_validator(value, opts)
  
-      DISPATCH_TABLE[opts[:validator]]
-
-     case(opts[:validator] ||= type_guesstimator(value, opts))
+     type = opts[:validator] ||= type_guesstimator(value, opts)
+      
+      case type.to_s
       when *MEMBERS_BOOL
-#        if PATTERN_TRUE =~  
+        cast_value
       when *MEMBERS_INT
-        cast_value(value, PATTERN_INT) { |v| v.to_i }
+        cast_value(value, PATTERN_INT) { |v, _| v.to_i }
       when *MEMBERS_FLOAT
-        cast_value(value, PATTERN_INT) { |v| v.to_f }
+        cast_value(value, PATTERN_FLOAT) { |v, _| v.to_f }
       when *MEMBERS_STRING
-        cast_value(value, PATTERN_INT) { |v| v.to_s }
+        cast_value(value, PATTERN_STRING) { |v, _| v.to_s }
       when *MEMBERS_HASH
-        cast_value(value, PATTERN_JSON) do |v|
+        cast_value(value, PATTERN_JSON) do |v, _|
           quoted_json = QUOTE_JSON.gsub(v, '"\k<quoted>"')
           JSON.parse(quoted_json)
         end
