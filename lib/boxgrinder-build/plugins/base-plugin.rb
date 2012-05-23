@@ -206,18 +206,19 @@ module BoxGrinder
     # Keys can be an array of aliases, or single value.
     # If multiple aliases are set, the first one takes precedence.
     # All aliases will refer to the same value.
-    def set_default_config_value(keys, default = nil, opts = {}, &blk)
-      opts = { 
-        :default => (default || nil),
+    def set_default_config_value(keys, default, opts = {}, &blk)
+      opts = {
+        :default => default,
         :type => nil, # nil for auto
         :validator => nil,
-        :required => false,       
+        :required => false,
+        :caster => nil
       }.update(opts)
 
       keys  = Array(keys)
       value = keys.map { |k| @plugin_config[k] }.reject { |k| k.nil? }.first
 
-      parse_parameter(keys.first, value, opts)
+      value = parse_parameter(keys.first, value, opts)
 
       if block_given?
         value = yield keys, (value || opts[:default])

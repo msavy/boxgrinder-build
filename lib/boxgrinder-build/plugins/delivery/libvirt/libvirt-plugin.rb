@@ -1,6 +1,7 @@
 require 'boxgrinder-build/plugins/base-plugin'
 require 'boxgrinder-build/helpers/command-helper'
 require 'boxgrinder-build/util/transfer'
+require 'active_support/core_ext/hash/deep_merge'
 require 'open4'
 require 'libvirt'
 
@@ -14,6 +15,12 @@ module BoxGrinder
     autoload(:Errors, 'boxgrinder-build/plugins/delivery/libvirt/errors')
     
     DEFAULT_PATH  = '/var/lib/libvirt/images'
+
+    OCTAL_CASTER  = {
+      :aliases => [:octal, :octal],
+      :patterns => [/^0?[1-7][0-7]*$/],
+      :cast => lambda { |v, _| v.to_i(8) }
+    }
 
     ALIASES       = {
       :connection_uri => %w(connection_uri connect),
@@ -36,23 +43,29 @@ module BoxGrinder
               current_platform].join('-')
       
       @name = 
-        set_default_config_value(ALIASES[:name], nstr)
+        set_default_config_value(ALIASES[:name], nstr, :type => :string)
       
       @image_delivery_uri = 
         set_default_config_value(ALIASES[:image_delivery_uri],
-                                 DEFAULT_PATH) do |_, v|
+                                 DEFAULT_PATH,
+                                 :type => :string) do |_, v|
           URI.parse(v)
         end
       
       @libvirt_image_uri = 
         set_default_config_value(ALIASES[:libvirt_image_uri],
-                                 @image_delivery_uri.path)
+                                 @image_delivery_uri.path,
+                                 :type => :string)
    
       @remote_no_verify = 
-        set_default_config_value(ALIASES[:remote_no_verify], true)
+        set_default_config_value(ALIASES[:remote_no_verify], 
+                                 true, 
+                                 :type => :string)
       
       @connection_uri = 
-        set_default_config_value(ALIASES[:connection_uri], '') do |_, v|
+        set_default_config_value(ALIASES[:connection_uri], 
+                                 '',
+                                 :type => :string) do |_, v|
           unless v.empty?  
             v << (v.include?('?') ? '&' : '?') << "no_verify=#{rnv}"
           end
@@ -60,22 +73,26 @@ module BoxGrinder
         end
 
       @virt_type = 
-        set_default_config_value(ALIASES[:virt_type], nil) do |_, v|
-          next nil if v.nil?
-          { 'virt-type' => v } 
-        end
+        set_default_config_value(ALIASES[:virt_type], false, :type => :hash)
 
       @default_permissions = 
-        set_default_config_value(ALIASES[:default_permissions], 0664)
+        set_default_config_value(ALIASES[:default_permissions], 
+                                 0664,
+                                 :caster => OCTAL_CASTER)
       
       @overwrite = 
-        set_default_config_value(ALIASES[:overwrite], false)
+        set_default_config_value(ALIASES[:overwrite], false, :type => :bool)
 
-      @disk = 
-        set_default_config_value(ALIASES[:disk]) do |_, v|
-          default = { :path => @libvirt_image_uri.to_s }
-          v && default.update(CommandHelper::command_to_hash(v))
-          { :disk => default }
+      @disk =
+        set_default_config_value(ALIASES[:disk], false, :type => :hash) do |_, v|
+          basename       = File.basename(@previous_deliverables.disk)
+          disk_location  = {
+            :disk => {
+              :path => File.join(@libvirt_image_uri, basename)
+             }
+          }
+        disk_location[:disk].deep_merge!(v || {})
+        disk_location
         end
     end
 
@@ -116,12 +133,14 @@ module BoxGrinder
                                               args, 
                                               ["="],
                                               [","])
+
+      @log.debug "Libvirt command: #{lv_cmd}."
+
       stdout, stderr = '', ''
       status = Open4::spawn(lv_cmd, 
                             'stdout' => stdout, 
                             'stderr' => stderr)
 
-      @log.debug "Libvirt command: #{lv_cmd}."
       @log.info stdout.strip
     rescue Open4::SpawnError
       Errors::virt_error_handler(stderr)

@@ -24,7 +24,7 @@ module BoxGrinder::Transfer
         :permissions => 0664 
       }.merge!(opts)
 
-      dest = Dir.exist?(dest) ? Path.join(dest, File.basename(src)) : dest
+      dest = Dir.exist?(dest) ? File.join(dest, File.basename(src)) : dest
       
       raise Errno::EEXIST if File.exists?(dest) && (!opts[:overwrite])
 
