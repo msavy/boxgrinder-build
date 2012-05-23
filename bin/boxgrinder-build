@@ -21,6 +21,8 @@ require 'rubygems'
 
 module BoxGrinder
   require 'boxgrinder-build/cli'
+  require 'pathname'
+  require 'rbconfig'
 
   ARGV_CLONE = ARGV.clone
 

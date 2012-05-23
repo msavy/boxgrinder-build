@@ -1,8 +1,3 @@
-require 'trollop'
-require 'hashery/opencascade'
-require 'pathname'
-require 'rbconfig'
-
 require 'boxgrinder-build'
 require 'boxgrinder-build/option-parser'
 require 'boxgrinder-build/appliance'
@@ -20,6 +15,7 @@ module BoxGrinder
 
       BoxGrinder.ensure_root
 
+#      observer = config.change_to_user && FSObserver.new(config.uid, config.gid)
       observer = if(config.change_to_user)
                    FSObserver.new(config.uid, config.gid)
                  else
