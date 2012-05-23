@@ -96,6 +96,17 @@ EOB
     validate_logging(opts)
     validate_subconfig(opts)
     validate_appliance_definition_file(opts)
+
+    opts[:additional_plugins] = opts[:plugins] || [] # redo
+    opts[:platform] ||= :none
+    opts[:delivery] ||= :none  # wtf
+
+    [:platform, :delivery].each { |p| opts[p]=opts[p].to_sym } #why is this a sym
+    
+    opts[:os_config] ||= {}
+    opts[:platform_config] ||= {} 
+    opts[:delivery_config] ||= {}
+
     OpenCascade.new(opts)
   end
 
@@ -121,7 +132,7 @@ EOB
   end
 
   def self.validate_logging(opts)
-    [:debug, :trace].each { |level| opts[:log_level] = level if opts[level] }
+    [:debug, :trace].each { |l| opts[:log_level] = l.to_sym if opts[l] }
   end
 
   # Parse, then validate and assign
@@ -140,14 +151,7 @@ EOB
   def self.split_pairs(opts, name)
     opts[name].reduce({}) do |accum, pair|
       if(match = SPLIT_ASSIGN.match(pair))
-        value = match[:value]
-        
-#        if(value[0].chr == '{')
-#          quoted_json = QUOTE_JSON.gsub(value, '"\k<quoted>"')
-#          value = JSON.parse(quoted_json)
-#        end
-
-        accum.update(match[:key] => value)
+        accum.update(match[:key] => match[:value])
       else
         Trollop::die(name, "Invalid format. Use key1:value1,key2:value2. " + 
                      "Colon literal characters can be escaped as '\\:'")
@@ -160,7 +164,7 @@ EOB
   def self.split_arguments(str, name, args = [])
     result = parse_json(str, name)
 
-    args.push(result[0].split(SEPARATOR))    
+    args.push(result[0].split(SEPARATOR).map(&:strip))    
 
     if(result.size > 1)
       args.push(result[1])

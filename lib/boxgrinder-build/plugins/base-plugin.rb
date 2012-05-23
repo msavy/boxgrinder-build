@@ -206,25 +206,21 @@ module BoxGrinder
     # Keys can be an array of aliases, or single value.
     # If multiple aliases are set, the first one takes precedence.
     # All aliases will refer to the same value.
-    def set_default_config_value(keys, opts = {}, &blk)
+    def set_default_config_value(keys, default = nil, opts = {}, &blk)
       opts = { 
-        :default => nil,
+        :default => (default || nil),
         :type => nil, # nil for auto
         :validator => nil,
         :required => false,       
-      }
-      
-      opts.update(opts)
+      }.update(opts)
 
       keys  = Array(keys)
       value = keys.map { |k| @plugin_config[k] }.reject { |k| k.nil? }.first
-      
-      value = type_validator(keys.first, value, opts)
-      required_validator(keys.first, value, opts)
-      user_validator(keys.first, value, opts)
+
+      parse_parameter(keys.first, value, opts)
 
       if block_given?
-        value = yield keys, value || opts[:default]
+        value = yield keys, (value || opts[:default])
       else
         value ||= opts[:default]
       end
@@ -240,7 +236,7 @@ module BoxGrinder
     # This merges the plugin config with configuration provided in command line
     def merge_plugin_config
       config =
-          case @plugin_info[:type]
+        case @plugin_info[:type]
             when :os
               @config.os_config
             when :platform
@@ -248,6 +244,10 @@ module BoxGrinder
             when :delivery
               @config.delivery_config
           end
+
+#      puts @plugin_info.inspect
+#      puts @plugin_config.inspect
+#      puts @config.inspect
 
       @plugin_config.merge!(config)
     end

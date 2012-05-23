@@ -34,6 +34,12 @@ module BoxGrinder
     attr_reader :appliance_config
 
     def initialize(appliance_definition, config = Config.new, options = {})
+      require 'pp'
+      pp appliance_definition
+      pp config
+      pp options
+      STDIN.gets
+
       @appliance_definition = appliance_definition
       @config = config
       @log = options[:log] || LogHelper.new(:level => @config.log_level)

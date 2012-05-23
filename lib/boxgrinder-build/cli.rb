@@ -15,12 +15,12 @@ module BoxGrinder
 
       BoxGrinder.ensure_root
 
-#      observer = config.change_to_user && FSObserver.new(config.uid, config.gid)
-      observer = if(config.change_to_user)
-                   FSObserver.new(config.uid, config.gid)
-                 else
-                   nil
-                 end
+      observer = config.change_to_user && FSObserver.new(config.uid, config.gid)
+      # observer = if(config.change_to_user)
+      #              FSObserver.new(config.uid, config.gid)
+      #            else
+      #              nil
+      #            end
 
       FSMonitor.instance.capture(observer)
 
@@ -30,6 +30,7 @@ module BoxGrinder
         appliance = Appliance.new(config[:appliance_definition_file], 
                                   config, 
                                   :log => log)
+
         appliance.create
       rescue Exception => e
         msg = "#{e.class}: #{e.message}#$/#{e.backtrace.join($/)}"
