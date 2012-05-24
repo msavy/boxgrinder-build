@@ -24,7 +24,7 @@ module BoxGrinder
   describe Appliance do
     def prepare_appliance(options = {}, definition_file = "#{File.dirname(__FILE__)}/rspec/src/appliances/jeos-f13.appl")
       @log = LogHelper.new(:level => :trace, :type => :stdout)
-      @config = OpenCascade.new(:platform => :none, :delivery => :none, :force => false, 
+      @config = OpenCascade.new(:platform => nil, :delivery => nil, :force => false, 
         :change_to_user => false, :uid => 501, :gid => 501, 
         :dir => {:root => '/', :build => 'build'}).merge(options)
 

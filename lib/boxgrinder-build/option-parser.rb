@@ -22,7 +22,6 @@ module BoxGrinder::OptionParser
         $ #{PROGRAM} jeos.appl -p vmware --platform-config type:personal,thin_disk:true  # Build VMware image for VMware Server, Player, Fusion using thin (growing) disk
         $ #{PROGRAM} jeos.appl -p ec2 -d ami                                             # Build and register AMI for jeos.appl
         $ #{PROGRAM} jeos.appl -p vmware -d local                                        # Build VMware image for jeos.appl and deliver it to local directory
-
 EOB
 
   def self.parse_opts
@@ -32,6 +31,7 @@ EOB
 
       banner USAGE_BANNER
       
+      banner ''
       banner 'Options:'
 
       opt(:platform, 
@@ -97,15 +97,10 @@ EOB
     validate_subconfig(opts)
     validate_appliance_definition_file(opts)
 
-    opts[:additional_plugins] = opts[:plugins] || [] # redo
-    opts[:platform] ||= :none
-    opts[:delivery] ||= :none  # wtf
-
-    [:platform, :delivery].each { |p| opts[p]=opts[p].to_sym } #why is this a sym
-    
-    opts[:os_config] ||= {}
-    opts[:platform_config] ||= {} 
-    opts[:delivery_config] ||= {}
+    default_hash([:os_config, :platform_config, :delivery_config], opts)
+    as_symbol([:platform, :delivery], opts)
+    default_array([:plugins], opts)
+    internal_rename(opts, :plugins => :additional_plugins)
 
     OpenCascade.new(opts)
   end
@@ -151,7 +146,7 @@ EOB
   def self.split_pairs(opts, name)
     opts[name].reduce({}) do |accum, pair|
       if(match = SPLIT_ASSIGN.match(pair))
-        accum.update(match[:key] => match[:value])
+        accum.update(match[:key].strip => match[:value].strip)
       else
         Trollop::die(name, "Invalid format. Use key1:value1,key2:value2. " + 
                      "Colon literal characters can be escaped as '\\:'")
@@ -160,7 +155,6 @@ EOB
   end
 
   ## Supports JSON-ish values, in addition to standard k1,v1:k2,v2
-
   def self.split_arguments(str, name, args = [])
     result = parse_json(str, name)
 
@@ -215,5 +209,34 @@ EOB
       return (index + 1) if str[index].chr == SEPARATOR
     end
     nil
+  end
+
+  # These are just to maintain compataibility with the old layout for now
+  # Probably better to encapsulate config in future to shield it from 
+  # implementation detail changes.
+  def self.internal_rename(opts, aliases = {})
+    aliases.inject(opts) do |hash, (k, v)| 
+      hash[v] = hash[k] 
+      hash.delete(k)
+    end
+  end
+
+  def self.default_array(params, opts)
+    cast(params, opts) { |hash, k, v| v || [] }
+  end
+
+  def self.default_hash(params, opts)
+    cast(params, opts) { |hash, k, v| v || {} }
+  end
+
+  def self.as_symbol(params, opts)
+    cast(params, opts) { |hash, k, v| v && v.to_sym }
+  end
+
+  def self.cast(params, opts)
+    Array(params).inject(opts) do |hash, (k, v)| 
+      hash[k] = yield hash, k, v
+      hash
+    end
   end
 end  

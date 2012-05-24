@@ -17,7 +17,7 @@ module BoxGrinder
     DEFAULT_PATH  = '/var/lib/libvirt/images'
 
     OCTAL_CASTER  = {
-      :aliases => [:octal, :octal],
+      :aliases => [:octal],
       :patterns => [/^0?[1-7][0-7]*$/],
       :cast => lambda { |v, _| v.to_i(8) }
     }
@@ -78,6 +78,7 @@ module BoxGrinder
       @default_permissions = 
         set_default_config_value(ALIASES[:default_permissions], 
                                  0664,
+                                 :type => :octal,
                                  :caster => OCTAL_CASTER)
       
       @overwrite = 

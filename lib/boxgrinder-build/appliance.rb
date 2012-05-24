@@ -172,11 +172,11 @@ module BoxGrinder
     end
 
     def platform_selected?
-      !(@config.platform == :none or @config.platform.to_s.empty? == nil)
+      @config.platform || @config.platform
     end
 
     def delivery_selected?
-      !(@config.delivery == :none or @config.delivery.to_s.empty? == nil)
+      @config.delivery || @config.delivery
     end
 
     def execute_plugin(plugin, param = nil)
