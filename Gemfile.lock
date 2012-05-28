@@ -1,5 +1,5 @@
 PATH
-  remote: ../boxgrinder-core
+  remote: /media/vmshare/RubymineProjects/BoxGrinder/boxgrinder-core
   specs:
     boxgrinder-core (0.3.12)
 
