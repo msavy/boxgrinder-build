@@ -18,6 +18,7 @@
 
 require 'rubygems'
 require 'boxgrinder-build/appliance'
+require 'boxgrinder-core'
 require 'boxgrinder-core/models/config'
 require 'boxgrinder-core/helpers/log-helper'
 require 'boxgrinder-build/helpers/guestfs-helper'
